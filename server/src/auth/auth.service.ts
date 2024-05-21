@@ -11,6 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { UserEntity } from '../entities/users/User';
 import { Repository } from 'typeorm';
 import { Response } from 'express';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +19,7 @@ export class AuthService {
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService
   ) {}
 
   async login(loginDto: LoginType) {
@@ -37,6 +39,7 @@ export class AuthService {
       where: { login: loginDto.login },
     });
     if (user && (await compare(loginDto.password, user.password))) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password, ...userWithoutPassword } = user;
       return userWithoutPassword;
     }
@@ -60,6 +63,7 @@ export class AuthService {
     user.password = await hash(user.password, 12);
     try {
       await this.userRepository.save(user);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password, ...userWihoutPassword } = user;
       return {
         user: userWihoutPassword,
@@ -81,7 +85,7 @@ export class AuthService {
     const expiresIn = new Date();
     expiresIn.setDate(expiresIn.getDate() + 30);
     res.cookie('access_token', token, {
-      domain: 'localhost',
+      domain: this.configService.get('DOMAIN'),
       expires: expiresIn,
       sameSite: 'none',
     });
@@ -89,7 +93,7 @@ export class AuthService {
 
   removeTokenFromResponse(res: Response) {
     res.cookie('access_token', '', {
-      domain: 'localhost',
+      domain: this.configService.get('DOMAIN'),
       expires: new Date(0),
       sameSite: 'none',
     });
