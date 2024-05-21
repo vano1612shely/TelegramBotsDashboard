@@ -5,7 +5,8 @@ import {
 } from "@/services/auth-token.service";
 import authService from "@/services/auth.service";
 import { errorCatch } from "@/services/error";
-export const SERVER_URL = "http://localhost:3001";
+export const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
+console.log(SERVER_URL)
 export const getContentType = () => ({
   "Content-Type": "application/json",
 });
