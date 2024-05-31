@@ -33,6 +33,11 @@ class BotCategoryService {
     const res = await api.patch(`/categories/${data.id}`, data);
     return res.data;
   }
+
+  async delete(id: number) {
+    const res = await api.delete(`/categories/${id}`);
+    return res.data;
+  }
 }
 
 const botCategoryService = new BotCategoryService();

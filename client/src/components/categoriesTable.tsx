@@ -10,10 +10,32 @@ import {
 import Image from "next/image";
 import { BotCategoryType } from "@/types/bot-category.type";
 import { Button } from "@/components/ui/button";
-import { Pencil } from "lucide-react";
+import { Pencil, Trash } from "lucide-react";
 import Link from "next/link";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import BotCategoryService from "@/services/bot-category.service";
+import { useEffect } from "react";
+import BotService from "@/services/bot.service";
 
 export default function CategoriesTable({ data }: { data: BotCategoryType[] }) {
+  const { mutate, data: deleteData } = useMutation({
+    mutationKey: ["deleteCategory"],
+    mutationFn: (id: number) => BotCategoryService.delete(id),
+  });
+  const { refetch: refetchCategories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => BotCategoryService.getAll(),
+  });
+  const { refetch: refetchBots } = useQuery({
+    queryKey: ["bots"],
+    queryFn: () => BotService.getAll(),
+  });
+  useEffect(() => {
+    if (deleteData) {
+      refetchCategories();
+      refetchBots();
+    }
+  }, [deleteData]);
   return (
     <Card className="flex-1">
       <CardHeader>
@@ -45,12 +67,15 @@ export default function CategoriesTable({ data }: { data: BotCategoryType[] }) {
                 <TableCell className="hidden md:table-cell">
                   {item.text}
                 </TableCell>
-                <TableCell>
+                <TableCell className="flex items-center gap-2">
                   <Link href={`/i/dashboard/bots/edit-category/${item.id}`}>
                     <Button>
                       <Pencil />
                     </Button>
                   </Link>
+                  <Button variant="destructive" onClick={() => mutate(item.id)}>
+                    <Trash />
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

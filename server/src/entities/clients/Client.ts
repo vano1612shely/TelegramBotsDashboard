@@ -23,11 +23,14 @@ export class ClientEntity {
   created_at: Date;
 
   @Column()
-  category_id: string;
+  category_id: number;
 
   @ManyToOne(() => BotCategoryEntity, (category) => category.bots, {
-    onDelete: 'CASCADE',
+    onDelete: 'SET NULL',
   })
   @JoinColumn({ name: 'category_id' })
   category: BotCategoryEntity;
+
+  @Column()
+  category_name: string;
 }

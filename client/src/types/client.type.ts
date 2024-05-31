@@ -6,4 +6,5 @@ export type ClientType = {
   username: string;
   create_at: Date;
   category: BotCategoryType;
+  category_name: string;
 };

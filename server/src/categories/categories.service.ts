@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { BotCategoryEntity } from '../entities/bots/BotCategory';
 import { Repository } from 'typeorm';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { BotsService } from '../bots/bots.service';
 
 @Injectable()
 export class CategoriesService {
@@ -16,6 +17,7 @@ export class CategoriesService {
     private readonly botCategoryRepository: Repository<BotCategoryEntity>,
     @InjectRepository(BotButtonEntity)
     private readonly botButtonRepository: Repository<BotButtonEntity>,
+    private readonly botsService: BotsService,
   ) {}
   async createCategory(data: CreateCategoryDto) {
     const category = await this.botCategoryRepository.save({
@@ -75,6 +77,15 @@ export class CategoriesService {
   }
 
   async deleteCategory(id: number) {
+    const category = await this.botCategoryRepository.findOne({
+      where: { id: id },
+      relations: {
+        bots: true,
+      },
+    });
+    for (const bot of category.bots) {
+      await this.botsService.deleteBot(bot.id);
+    }
     return await this.botCategoryRepository.delete({ id: id });
   }
 

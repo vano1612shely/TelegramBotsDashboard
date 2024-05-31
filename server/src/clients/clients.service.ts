@@ -19,9 +19,9 @@ export class ClientsService {
     select: string[] | null,
     includeRelations: string | null,
   ) {
-    let include =
+    const include =
       typeof includeRelations === 'string' ? includeRelations == 'true' : true;
-    let offset =
+    const offset =
       typeof perPage == 'number' && typeof page == 'number'
         ? (page - 1) * perPage
         : 0;
@@ -63,6 +63,7 @@ export class ClientsService {
       name: data.name,
       username: data.username,
       category: category,
+      category_name: category.name,
     });
   }
 }

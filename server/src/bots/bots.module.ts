@@ -26,5 +26,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
   ],
   controllers: [BotsController],
   providers: [BotsService, BotsHandler],
+  exports: [BotsService],
 })
 export class BotsModule {}

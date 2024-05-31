@@ -1,6 +1,5 @@
-import {cookies} from "next/headers";
-import {redirect} from "next/navigation";
+import { redirect } from "next/navigation";
 
 export default function I() {
-    redirect("/i/dashboard")
+  redirect("/i/dashboard");
 }

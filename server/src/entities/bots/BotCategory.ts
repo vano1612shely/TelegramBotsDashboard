@@ -17,7 +17,9 @@ export class BotCategoryEntity {
   @OneToMany(() => BotButtonEntity, (button) => button.category)
   buttons: BotButtonEntity[];
 
-  @OneToMany(() => ClientEntity, (client) => client.category)
+  @OneToMany(() => ClientEntity, (client) => client.category, {
+    onDelete: 'SET NULL',
+  })
   clients: ClientEntity[];
 
   @Column({ nullable: true })
