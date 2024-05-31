@@ -72,9 +72,11 @@ export const columns: ColumnDef<ClientType>[] = [
     cell: ({ row }) => {
       return (
         <>
-          {row.original.category_name ||
-            row.original.category.name ||
-            "Unknown"}
+          {row.original.category_name
+            ? row.original.category_name
+            : row.original.category && row.original.category.name
+              ? row.original.category.name
+              : "Unknown"}
         </>
       );
     },
