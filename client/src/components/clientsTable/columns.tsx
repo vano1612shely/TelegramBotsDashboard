@@ -60,17 +60,17 @@ export const columns: ColumnDef<ClientType>[] = [
     accessorKey: "category",
     header: ({ column }) => {
       return (
-          <Button
-              variant="ghost"
-              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          >
-            Category
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Category
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
       );
     },
     cell: ({ row }) => {
-      return row.original.category_name;
+      return <>{row.original.category_name || row.original.category.name}</>;
     },
   },
   {

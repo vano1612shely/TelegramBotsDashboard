@@ -31,6 +31,6 @@ export class ClientEntity {
   @JoinColumn({ name: 'category_id' })
   category: BotCategoryEntity;
 
-  @Column()
+  @Column({ nullable: true })
   category_name: string;
 }
