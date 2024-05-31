@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CategoriesController } from './categories.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -9,7 +9,7 @@ import { BotsModule } from '../bots/bots.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([BotCategoryEntity, BotButtonEntity]),
-    BotsModule,
+    forwardRef(() => BotsModule),
   ],
   controllers: [CategoriesController],
   providers: [CategoriesService],

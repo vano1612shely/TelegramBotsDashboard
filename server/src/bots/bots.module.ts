@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { BotsService } from './bots.service';
 import { BotsController } from './bots.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -14,7 +14,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 @Module({
   imports: [
     TypeOrmModule.forFeature([BotEntity, BotCategoryEntity, BotButtonEntity]),
-    CategoriesModule,
+    forwardRef(() => CategoriesModule),
     ClientsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

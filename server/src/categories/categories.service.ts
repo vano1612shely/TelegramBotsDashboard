@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import {
   CreateBotButtonDto,
   CreateCategoryDto,
@@ -17,6 +17,7 @@ export class CategoriesService {
     private readonly botCategoryRepository: Repository<BotCategoryEntity>,
     @InjectRepository(BotButtonEntity)
     private readonly botButtonRepository: Repository<BotButtonEntity>,
+    @Inject(forwardRef(() => BotsService))
     private readonly botsService: BotsService,
   ) {}
   async createCategory(data: CreateCategoryDto) {

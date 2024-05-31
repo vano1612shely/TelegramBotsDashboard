@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  forwardRef,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { Telegraf } from 'telegraf';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -20,6 +25,7 @@ export class BotsService {
     private readonly botCategoryRepository: Repository<BotCategoryEntity>,
     @InjectRepository(BotButtonEntity)
     private readonly botButtonRepository: Repository<BotButtonEntity>,
+    @Inject(forwardRef(() => CategoriesService))
     private readonly categoriesService: CategoriesService,
     private readonly botsHandler: BotsHandler,
   ) {
