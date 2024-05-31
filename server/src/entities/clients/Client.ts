@@ -22,7 +22,7 @@ export class ClientEntity {
   @CreateDateColumn()
   created_at: Date;
 
-  @Column()
+  @Column({ nullable: true })
   category_id: number;
 
   @ManyToOne(() => BotCategoryEntity, (category) => category.bots, {
