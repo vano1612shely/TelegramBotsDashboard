@@ -70,7 +70,13 @@ export const columns: ColumnDef<ClientType>[] = [
       );
     },
     cell: ({ row }) => {
-      return <>{row.original.category_name || row.original.category.name}</>;
+      return (
+        <>
+          {row.original.category_name ||
+            row.original.category.name ||
+            "Unknown"}
+        </>
+      );
     },
   },
   {
