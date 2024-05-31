@@ -11,7 +11,7 @@ export class BotsHandler {
     bot.botInstance.start(async (ctx) => {
       try {
         const data: CreateClientDto = {
-          name: `${ctx.message.from.first_name} ${ctx.message.from.last_name}`,
+          name: `${ctx.message.from.first_name ? ctx.message.from.first_name : ''}${ctx.message.from.last_name ? ' ' + ctx.message.from.last_name : ''}`,
           username: ctx.message.from.username,
           category_id: bot.category_id,
         };
