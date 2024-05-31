@@ -96,7 +96,7 @@ export const columns: ColumnDef<ClientType>[] = [
     },
     cell: ({ row }) => {
       return (
-        <p>{dayjs(row.original.create_at).format("YYYY.MM.DD HH:mm:ss")}</p>
+        <p>{dayjs(row.original.created_at).format("YYYY.MM.DD HH:mm:ss")}</p>
       );
     },
   },
