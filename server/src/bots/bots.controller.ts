@@ -7,13 +7,11 @@ import {
   Param,
   Post,
   Query,
-  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
 import { BotsService } from './bots.service';
 import { CreateBotDto } from './dto/create-bot.dto';
-import { Auth } from '../decorators/auth.decorator';
 
 @Controller('bots')
 export class BotsController {
@@ -28,13 +26,14 @@ export class BotsController {
 
   @HttpCode(200)
   @Get()
-  async getCategories(
+  async getBots(
     @Query('per_page') perPage?: number | null,
     @Query('page') page?: number | null,
     @Query('take_all') take_all?: string | null,
     @Query('select') select?: string[] | null,
     @Query('include_relations') includeRelations?: string | null,
   ) {
+    console.log(take_all);
     return await this.botsService.getAll(
       perPage ? Number(perPage) : null,
       page ? Number(page) : null,

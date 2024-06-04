@@ -106,7 +106,9 @@ export class BotsService {
     if (select) {
       selectArr = [...select];
     }
-    if (take_all === 'true') {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
+    if (take_all === 'true' || take_all === true) {
       return await this.botRepository.find({
         select: selectArr.length > 0 ? selectArr : undefined,
         relations: { category: include ? { buttons: true } : false },
