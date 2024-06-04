@@ -129,7 +129,7 @@ export class BotsService {
 
   async deleteBot(id: number) {
     const bot = this.bots.find((bot) => bot.id === id);
-    if (bot) bot.botInstance.stop();
+    if (bot && bot.botInstance) bot.botInstance.stop();
     return await this.botRepository.delete({ id: id });
   }
 
