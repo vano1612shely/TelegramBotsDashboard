@@ -9,7 +9,7 @@ class ClientService {
       params: {
         per_page: data?.perPage,
         page: data?.page,
-        take_all: data?.take_all,
+        take_all: true,
         select: data?.select,
         include_relations: data?.include_relations,
       },
