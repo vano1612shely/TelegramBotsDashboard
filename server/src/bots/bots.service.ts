@@ -37,7 +37,7 @@ export class BotsService {
         category: { buttons: true },
       },
     });
-    for(const bot of data) {
+    for (const bot of data) {
       const botItem: BotType = {
         botInstance: new Telegraf(bot.token),
         ...bot,
@@ -46,13 +46,12 @@ export class BotsService {
       const res = await (
         await fetch(`https://api.telegram.org/bot${bot.token}/getMe`)
       ).json();
-      if (!res.ok) {
-        throw new BadRequestException('Bot token not valid');
+      if (res.ok) {
+        this.botsHandler.addAllHandlers(botItem);
+        this.bots.push(botItem);
+        botItem.botInstance.launch();
+        botItem.status = 'started';
       }
-      this.botsHandler.addAllHandlers(botItem);
-      this.bots.push(botItem);
-      botItem.botInstance.launch();
-      botItem.status = 'started';
     }
   }
 
