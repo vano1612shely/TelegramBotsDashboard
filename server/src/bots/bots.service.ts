@@ -48,10 +48,10 @@ export class BotsService {
       ).json();
       if (res.ok) {
         this.botsHandler.addAllHandlers(botItem);
-        this.bots.push(botItem);
         botItem.botInstance.launch();
         botItem.status = 'started';
       }
+      this.bots.push(botItem);
     }
   }
 
