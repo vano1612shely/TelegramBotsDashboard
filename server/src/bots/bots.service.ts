@@ -37,17 +37,23 @@ export class BotsService {
         category: { buttons: true },
       },
     });
-    data.map((bot) => {
+    for(const bot of data) {
       const botItem: BotType = {
         botInstance: new Telegraf(bot.token),
         ...bot,
         status: 'stopped',
       };
+      const res = await (
+        await fetch(`https://api.telegram.org/bot${bot.token}/getMe`)
+      ).json();
+      if (!res.ok) {
+        throw new BadRequestException('Bot token not valid');
+      }
       this.botsHandler.addAllHandlers(botItem);
       this.bots.push(botItem);
       botItem.botInstance.launch();
       botItem.status = 'started';
-    });
+    }
   }
 
   async addBot(bot: BotEntity) {
@@ -91,9 +97,9 @@ export class BotsService {
     select: string[] | null,
     includeRelations: string | null,
   ) {
-    let include =
+    const include =
       typeof includeRelations === 'string' ? includeRelations == 'true' : true;
-    let offset =
+    const offset =
       typeof perPage == 'number' && typeof page == 'number'
         ? (page - 1) * perPage
         : 0;
