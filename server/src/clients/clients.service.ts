@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { ClientEntity } from '../entities/clients/Client';
-import { Repository } from 'typeorm';
-import { CreateClientDto } from './dto/create-user.dto';
-import { CategoriesService } from '../categories/categories.service';
+import {Injectable} from '@nestjs/common';
+import {InjectRepository} from '@nestjs/typeorm';
+import {ClientEntity} from '../entities/clients/Client';
+import {Repository} from 'typeorm';
+import {CreateClientDto} from './dto/create-user.dto';
+import {CategoriesService} from '../categories/categories.service';
 
 @Injectable()
 export class ClientsService {
@@ -65,5 +65,9 @@ export class ClientsService {
       category: category,
       category_name: category.name,
     });
+  }
+
+  async delete(id: number) {
+    return await this.clientRepository.delete(id);
   }
 }

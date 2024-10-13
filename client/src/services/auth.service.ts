@@ -21,6 +21,14 @@ class AuthService {
     if (res.data) removeTokenFromStorage();
     return res.data;
   }
+  async getMe() {
+    const res = await apiClassic.get(`/auth/getMe`);
+    return res.data;
+  }
+  async update(id: number, data: LoginType) {
+    const res = await apiClassic.patch(`/auth/${id}`, data);
+    return res.data;
+  }
 }
 
 const authService = new AuthService();

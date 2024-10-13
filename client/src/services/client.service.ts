@@ -20,6 +20,10 @@ class ClientService {
     const res = await api.get(`/clients/${id}`);
     return res.data;
   }
+  async delete(id: number): Promise<any> {
+    const res = await api.delete(`/clients/${id}`);
+    return res.data;
+  }
 }
 
 const clientService = new ClientService();

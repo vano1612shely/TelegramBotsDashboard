@@ -3,8 +3,8 @@ import {
   Controller,
   Get,
   HttpCode,
-  HttpStatus,
-  Post,
+  HttpStatus, Param, ParseIntPipe, Patch,
+  Post, Req,
   Res,
   UsePipes,
   ValidationPipe,
@@ -31,11 +31,23 @@ export class AuthController {
     this.authService.addTokenToResponse(res, token);
     return { access_token: token };
   }
-
+  @Public()
   @Post('/create')
   @UsePipes(new ValidationPipe({ transform: true }))
   async createUser(@Body() data: LoginType) {
     return await this.authService.createUser(data);
+  }
+  @Get('/getMe')
+  async getMe(@Req() req) {
+    return await this.authService.getUserById(req.user_id);
+  }
+  @Patch('/:id')
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async updateUser(
+      @Param('id', ParseIntPipe) id: number,
+      @Body() data: LoginType,
+  ) {
+    return await this.authService.updateUser(id, data);
   }
 
   @Post('logout')

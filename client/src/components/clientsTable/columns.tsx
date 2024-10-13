@@ -2,10 +2,13 @@
 
 import { ColumnDef } from "@tanstack/react-table";
 import { ClientType } from "@/types/client.type";
-import { ArrowUpDown, MoreHorizontal } from "lucide-react";
+import {ArrowUpDown, MoreHorizontal, Trash} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import dayjs from "dayjs";
+import {useMutation, useQueryClient} from "@tanstack/react-query";
+import clientService from "@/services/client.service";
+import {useGetClients} from "@/data/get-clients";
 export const columns: ColumnDef<ClientType>[] = [
   {
     accessorKey: "id",
@@ -97,6 +100,26 @@ export const columns: ColumnDef<ClientType>[] = [
     cell: ({ row }) => {
       return (
         <p>{dayjs(row.original.created_at).format("YYYY.MM.DD HH:mm:ss")}</p>
+      );
+    },
+  },
+  {
+    accessorKey: "delete",
+    header: "Delete",
+    cell: ({ row }) => {
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      const queryClient = useQueryClient();
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      const {mutate, isPending} = useMutation({
+        mutationKey: ['delete'],
+        mutationFn: () => clientService.delete(row.original.id),
+        onSuccess: () => {
+          // eslint-disable-next-line react-hooks/rules-of-hooks
+          queryClient.refetchQueries({queryKey: ['clients']})
+        }
+      })
+      return (
+         <Button variant="destructive" onClick={() => mutate()} disabled={isPending}><Trash/></Button>
       );
     },
   },

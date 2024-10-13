@@ -5,7 +5,7 @@ import {
   FolderKanban,
   LogOut,
   Users,
-  Menu as MenuIcon,
+  Menu as MenuIcon, Settings,
 } from "lucide-react";
 import {
   Tooltip,
@@ -58,6 +58,15 @@ export default function Menu() {
                 >
                   <Bot className="h-5 w-5" />
                   <span>Bots</span>
+                </Link>
+              </SheetClose>
+              <SheetClose asChild>
+                <Link
+                    href="/i/dashboard/settings"
+                    className="flex items-center justify-center gap-2"
+                >
+                  <Settings className="h-5 w-5" />
+                  <span>Settings</span>
                 </Link>
               </SheetClose>
             </nav>
@@ -118,6 +127,18 @@ export default function Menu() {
                 </Link>
               </TooltipTrigger>
               <TooltipContent side="right">Bots</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                    href="/i/dashboard/settings"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8"
+                >
+                  <Settings className="h-5 w-5" />
+                  <span className="sr-only">Settings</span>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">Settings</TooltipContent>
             </Tooltip>
           </nav>
           <nav className="mt-auto flex flex-col items-center gap-4 px-2 sm:py-5">
