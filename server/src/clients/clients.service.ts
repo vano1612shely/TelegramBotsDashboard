@@ -1,9 +1,9 @@
-import {Injectable} from '@nestjs/common';
-import {InjectRepository} from '@nestjs/typeorm';
-import {ClientEntity} from '../entities/clients/Client';
-import {Repository} from 'typeorm';
-import {CreateClientDto} from './dto/create-user.dto';
-import {CategoriesService} from '../categories/categories.service';
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { ClientEntity } from '../entities/clients/Client';
+import { Repository } from 'typeorm';
+import { CreateClientDto } from './dto/create-user.dto';
+import { CategoriesService } from '../categories/categories.service';
 
 @Injectable()
 export class ClientsService {
@@ -33,6 +33,9 @@ export class ClientsService {
       return await this.clientRepository.find({
         select: selectArr.length > 0 ? selectArr : undefined,
         relations: { category: include ? { buttons: true } : false },
+        order: {
+          created_at: 'desc',
+        },
       });
     }
     return await this.clientRepository.find({
@@ -40,6 +43,9 @@ export class ClientsService {
       skip: offset,
       relations: { category: include },
       select: selectArr.length > 0 ? selectArr : undefined,
+      order: {
+        created_at: 'desc',
+      },
     });
   }
 
