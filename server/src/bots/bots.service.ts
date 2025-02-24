@@ -204,35 +204,42 @@ export class BotsService {
         return;
       }
 
-      for (const client of clients) {
-        try {
-          if (files && files.length > 0) {
-            // Створюємо масив фото для `sendMediaGroup`
-            const mediaGroup: InputMediaPhoto[] = files.map((file, index) => ({
-              type: 'photo',
-              media: { source: Buffer.from(file.buffer) }, // ✅ Передаємо `Buffer`
-              ...(index === files.length - 1
-                ? { caption: message, parse_mode: 'HTML' }
-                : {}),
-            }));
+      await Promise.allSettled(
+        clients.map(async (client) => {
+          try {
+            if (files && files.length > 0) {
+              // Створюємо масив фото для `sendMediaGroup`
+              const mediaGroup: InputMediaPhoto[] = files.map(
+                (file, index) => ({
+                  type: 'photo',
+                  media: { source: Buffer.from(file.buffer) },
+                  ...(index === files.length - 1
+                    ? { caption: message, parse_mode: 'HTML' }
+                    : {}),
+                }),
+              );
 
-            await bot.botInstance.telegram.sendMediaGroup(
-              client.chat_id,
-              mediaGroup,
-            );
-          } else {
-            await bot.botInstance.telegram.sendMessage(
-              client.chat_id,
-              message,
-              {
-                parse_mode: 'HTML',
-              },
+              await bot.botInstance.telegram.sendMediaGroup(
+                client.chat_id,
+                mediaGroup,
+              );
+            } else {
+              await bot.botInstance.telegram.sendMessage(
+                client.chat_id,
+                message,
+                {
+                  parse_mode: 'HTML',
+                },
+              );
+            }
+          } catch (error) {
+            console.error(
+              `Error sending message to ${client.username}:`,
+              error,
             );
           }
-        } catch (error) {
-          console.error(`Error sending message to ${client.username}:`, error);
-        }
-      }
+        }),
+      );
     } catch (error) {
       console.error('sendMessage error:', error);
     }
@@ -244,5 +251,9 @@ export class BotsService {
       return bot.status;
     }
     return undefined;
+  }
+
+  getBotsByCategory(categoryId: number): BotType[] | undefined {
+    return this.bots.filter((bot) => bot.category_id === categoryId);
   }
 }

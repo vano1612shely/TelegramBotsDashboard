@@ -12,4 +12,7 @@ export class CreateClientDto {
 
   @IsNumber()
   chat_id: number;
+
+  @IsNumber()
+  bot_id: number;
 }

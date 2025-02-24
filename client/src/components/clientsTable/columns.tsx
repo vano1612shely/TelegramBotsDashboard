@@ -2,13 +2,13 @@
 
 import { ColumnDef } from "@tanstack/react-table";
 import { ClientType } from "@/types/client.type";
-import {ArrowUpDown, MoreHorizontal, Trash} from "lucide-react";
+import { ArrowUpDown, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import dayjs from "dayjs";
-import {useMutation, useQueryClient} from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import clientService from "@/services/client.service";
-import {useGetClients} from "@/data/get-clients";
+
 export const columns: ColumnDef<ClientType>[] = [
   {
     accessorKey: "id",
@@ -58,6 +58,10 @@ export const columns: ColumnDef<ClientType>[] = [
         </Link>
       );
     },
+  },
+  {
+    accessorKey: "chat_id",
+    header: "Chat ID",
   },
   {
     accessorKey: "category",
@@ -110,16 +114,22 @@ export const columns: ColumnDef<ClientType>[] = [
       // eslint-disable-next-line react-hooks/rules-of-hooks
       const queryClient = useQueryClient();
       // eslint-disable-next-line react-hooks/rules-of-hooks
-      const {mutate, isPending} = useMutation({
-        mutationKey: ['delete'],
+      const { mutate, isPending } = useMutation({
+        mutationKey: ["delete"],
         mutationFn: () => clientService.delete(row.original.id),
         onSuccess: () => {
           // eslint-disable-next-line react-hooks/rules-of-hooks
-          queryClient.refetchQueries({queryKey: ['clients']})
-        }
-      })
+          queryClient.refetchQueries({ queryKey: ["clients"] });
+        },
+      });
       return (
-         <Button variant="destructive" onClick={() => mutate()} disabled={isPending}><Trash/></Button>
+        <Button
+          variant="destructive"
+          onClick={() => mutate()}
+          disabled={isPending}
+        >
+          <Trash />
+        </Button>
       );
     },
   },

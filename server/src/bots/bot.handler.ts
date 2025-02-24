@@ -16,6 +16,7 @@ export class BotsHandler {
           username: ctx.message.from.username,
           category_id: bot.category_id,
           chat_id: ctx.message.from.id,
+          bot_id: bot.id,
         };
         await this.clientsService.create(data);
       } catch (e) {

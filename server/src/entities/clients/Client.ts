@@ -14,7 +14,7 @@ export class ClientEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true })
+  @Column()
   username: string;
 
   @Column()
@@ -37,6 +37,9 @@ export class ClientEntity {
   })
   @JoinColumn({ name: 'bot_id' })
   bot: BotEntity;
+
+  @Column({ nullable: true })
+  bot_id: number;
 
   @Column({ nullable: true })
   category_name: string;

@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ClientEntity } from '../entities/clients/Client';
 import { Repository } from 'typeorm';
 import { CreateClientDto } from './dto/create-user.dto';
 import { CategoriesService } from '../categories/categories.service';
+import { BotsService } from '../bots/bots.service';
 
 @Injectable()
 export class ClientsService {
@@ -11,6 +12,8 @@ export class ClientsService {
     @InjectRepository(ClientEntity)
     private readonly clientRepository: Repository<ClientEntity>,
     private readonly categoryService: CategoriesService,
+    @Inject(forwardRef(() => BotsService))
+    private readonly botsService: BotsService,
   ) {}
 
   async getAll(
@@ -59,11 +62,24 @@ export class ClientsService {
 
   async create(data: CreateClientDto) {
     const checkUser = await this.clientRepository.findOne({
-      where: { username: data.username },
+      where: {
+        username: data.username,
+        category_id: data.category_id,
+        bot_id: data.bot_id,
+      },
       relations: { category: true },
     });
     if (checkUser) {
-      return checkUser;
+      const bot = await this.botsService.getBot(data.bot_id);
+      return await this.clientRepository.update(
+        {
+          username: data.username,
+        },
+        {
+          chat_id: data.chat_id,
+          bot: bot,
+        },
+      );
     }
     const category = await this.categoryService.getCategory(data.category_id);
     return await this.clientRepository.save({

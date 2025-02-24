@@ -7,4 +7,5 @@ export type ClientType = {
   created_at: Date;
   category: BotCategoryType;
   category_name: string;
+  chat_id?: number;
 };

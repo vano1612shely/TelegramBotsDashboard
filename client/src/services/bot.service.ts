@@ -54,13 +54,14 @@ class BotService {
     return res.data;
   }
 
-  async sendMessage(categoryId: number, message: string, files: FileList) {
+  async sendMessage(categoryId: number, message: string, files?: FileList) {
     const formData = new FormData();
     formData.append("categoryId", categoryId.toString()); // ⚡ Перетворюємо в рядок
     formData.append("message", message);
-    Array.from(files).forEach((file) => {
-      formData.append("files", file); // Ensure 'files' matches @UploadedFiles()
-    });
+    if (files)
+      Array.from(files).forEach((file) => {
+        formData.append("files", file); // Ensure 'files' matches @UploadedFiles()
+      });
     const res = await api.post(`/bots/send-message`, formData, {
       headers: {
         "Content-Type": "multipart/form-data",

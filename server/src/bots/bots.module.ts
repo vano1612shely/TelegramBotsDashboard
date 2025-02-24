@@ -15,7 +15,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
   imports: [
     TypeOrmModule.forFeature([BotEntity, BotCategoryEntity, BotButtonEntity]),
     forwardRef(() => CategoriesModule),
-    ClientsModule,
+    forwardRef(() => ClientsModule),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

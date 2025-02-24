@@ -1,4 +1,11 @@
-import {Controller, Delete, Get, HttpCode, Param, Query} from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Query,
+} from '@nestjs/common';
 import { ClientsService } from './clients.service';
 
 @Controller('clients')
@@ -23,10 +30,11 @@ export class ClientsController {
     );
   }
 
-  @Delete("/:id")
+  @Delete('/:id')
   async deleteClient(@Param('id') id: number) {
     return await this.clientsService.delete(id);
   }
+
   @HttpCode(200)
   @Get('/:id')
   async getCategory(@Param('id') id: number) {

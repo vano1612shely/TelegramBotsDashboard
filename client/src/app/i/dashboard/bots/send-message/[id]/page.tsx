@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Loader2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import botService from "@/services/bot.service";
 import { useParams } from "next/navigation";
@@ -14,7 +14,7 @@ export default function SendMessage() {
   const [text, setText] = useState<string>("");
   const param = useParams() as any;
   const [files, setFiles] = useState<FileList | null>(null);
-  const { mutate } = useMutation({
+  const { mutate, isPending } = useMutation({
     mutationKey: ["sendMessage"],
     mutationFn: () =>
       botService.sendMessage(param.id as number, text, files as FileList),
@@ -43,8 +43,13 @@ export default function SendMessage() {
           type="file"
           onChange={(e) => setFiles(e.target.files)}
         ></Input>
-        <Button className="bg-green-600" onClick={() => mutate()}>
+        <Button
+          className="bg-green-600"
+          onClick={() => mutate()}
+          disabled={isPending}
+        >
           Відправити
+          {isPending && <Loader2 className="animate-spin" />}
         </Button>
       </CardContent>
     </Card>
