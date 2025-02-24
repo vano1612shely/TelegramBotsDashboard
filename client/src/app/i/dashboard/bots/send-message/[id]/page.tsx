@@ -11,8 +11,8 @@ import botService from "@/services/bot.service";
 import { useParams } from "next/navigation";
 
 export default function SendMessage() {
-  const [text, setText] = useState("");
-  const param = useParams();
+  const [text, setText] = useState<string>("");
+  const param = useParams() as any;
   const [files, setFiles] = useState<FileList | null>(null);
   const { mutate } = useMutation({
     mutationKey: ["sendMessage"],
