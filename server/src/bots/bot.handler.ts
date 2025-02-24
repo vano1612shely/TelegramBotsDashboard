@@ -7,6 +7,7 @@ import { CreateClientDto } from '../clients/dto/create-user.dto';
 @Injectable()
 export class BotsHandler {
   constructor(private readonly clientsService: ClientsService) {}
+
   async start(bot: BotType) {
     bot.botInstance.start(async (ctx) => {
       try {
@@ -14,6 +15,7 @@ export class BotsHandler {
           name: `${ctx.message.from.first_name ? ctx.message.from.first_name : ''}${ctx.message.from.last_name ? ' ' + ctx.message.from.last_name : ''}`,
           username: ctx.message.from.username,
           category_id: bot.category_id,
+          chat_id: ctx.message.from.id,
         };
         await this.clientsService.create(data);
       } catch (e) {
@@ -33,6 +35,7 @@ export class BotsHandler {
       );
     });
   }
+
   async addAllHandlers(bot: BotType) {
     await this.start(bot);
   }

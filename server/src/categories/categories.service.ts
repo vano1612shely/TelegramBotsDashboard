@@ -20,6 +20,7 @@ export class CategoriesService {
     @Inject(forwardRef(() => BotsService))
     private readonly botsService: BotsService,
   ) {}
+
   async createCategory(data: CreateCategoryDto) {
     const category = await this.botCategoryRepository.save({
       name: data.name,

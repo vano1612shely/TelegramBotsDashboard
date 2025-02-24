@@ -14,10 +14,13 @@ import { BotType } from '../types/BotTypes';
 import { CreateBotDto } from './dto/create-bot.dto';
 import { CategoriesService } from '../categories/categories.service';
 import { BotsHandler } from './bot.handler';
+import { ClientsService } from '../clients/clients.service';
+import { InputMediaPhoto } from 'telegraf/types';
 
 @Injectable()
 export class BotsService {
   bots: BotType[] = [];
+
   constructor(
     @InjectRepository(BotEntity)
     private readonly botRepository: Repository<BotEntity>,
@@ -28,9 +31,11 @@ export class BotsService {
     @Inject(forwardRef(() => CategoriesService))
     private readonly categoriesService: CategoriesService,
     private readonly botsHandler: BotsHandler,
+    private readonly clientsService: ClientsService,
   ) {
     this.init().then(() => 'bots init');
   }
+
   async init() {
     const data = await this.botRepository.find({
       relations: {
@@ -148,6 +153,7 @@ export class BotsService {
     }
     return false;
   }
+
   async start(id: number) {
     const bot = this.bots.find((bot) => bot.id === id);
     if (bot && (bot.botInstance === null || bot.status === 'stopped')) {
@@ -170,6 +176,66 @@ export class BotsService {
       return true;
     }
     return false;
+  }
+
+  private getBotByCategory(categoryId: number) {
+    const bots = this.bots.find(
+      (bot) => bot.category_id === Number(categoryId),
+    );
+    return bots;
+  }
+
+  async sendMessage(
+    categoryId: number,
+    message: string,
+    files?: Express.Multer.File[],
+  ) {
+    try {
+      const clients = await this.clientsService.findByCategory(
+        Number(categoryId),
+      );
+      if (!clients.length) {
+        console.log(`No clients found for category ${categoryId}`);
+        return;
+      }
+      const bot = this.getBotByCategory(categoryId);
+      if (!bot) {
+        console.log(`No bot found for category ${categoryId}`);
+        return;
+      }
+
+      for (const client of clients) {
+        try {
+          if (files && files.length > 0) {
+            // Створюємо масив фото для `sendMediaGroup`
+            const mediaGroup: InputMediaPhoto[] = files.map((file, index) => ({
+              type: 'photo',
+              media: { source: Buffer.from(file.buffer) }, // ✅ Передаємо `Buffer`
+              ...(index === files.length - 1
+                ? { caption: message, parse_mode: 'HTML' }
+                : {}),
+            }));
+
+            await bot.botInstance.telegram.sendMediaGroup(
+              client.chat_id,
+              mediaGroup,
+            );
+          } else {
+            await bot.botInstance.telegram.sendMessage(
+              client.chat_id,
+              message,
+              {
+                parse_mode: 'HTML',
+              },
+            );
+          }
+        } catch (error) {
+          console.error(`Error sending message to ${client.username}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error('sendMessage error:', error);
+    }
   }
 
   async getStatus(id: number) {

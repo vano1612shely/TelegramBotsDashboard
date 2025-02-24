@@ -12,6 +12,7 @@ export class ClientsService {
     private readonly clientRepository: Repository<ClientEntity>,
     private readonly categoryService: CategoriesService,
   ) {}
+
   async getAll(
     perPage: number | null,
     page: number | null,
@@ -70,10 +71,15 @@ export class ClientsService {
       username: data.username,
       category: category,
       category_name: category.name,
+      chat_id: data.chat_id,
     });
   }
 
   async delete(id: number) {
     return await this.clientRepository.delete(id);
+  }
+
+  async findByCategory(categoryId: number): Promise<ClientEntity[]> {
+    return this.clientRepository.find({ where: { category_id: categoryId } });
   }
 }

@@ -7,6 +7,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { BotCategoryEntity } from '../bots/BotCategory';
+import { BotEntity } from '../bots/Bot';
 
 @Entity('client')
 export class ClientEntity {
@@ -31,6 +32,15 @@ export class ClientEntity {
   @JoinColumn({ name: 'category_id' })
   category: BotCategoryEntity;
 
+  @ManyToOne(() => BotCategoryEntity, (category) => category.bots, {
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'bot_id' })
+  bot: BotEntity;
+
   @Column({ nullable: true })
   category_name: string;
+
+  @Column({ nullable: true })
+  chat_id: number;
 }

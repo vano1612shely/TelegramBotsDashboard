@@ -28,24 +28,45 @@ class BotService {
     const res = await api.get(`/bots/${id}`);
     return res.data;
   }
+
   async delete(id: number): Promise<boolean> {
     const res = await api.delete(`/bots/${id}`);
     return res.data;
   }
+
   async stop(id: number): Promise<boolean> {
     const res = await api.get(`/bots/stop/${id}`);
     return res.data;
   }
+
   async start(id: number): Promise<boolean> {
     const res = await api.get(`/bots/start/${id}`);
     return res.data;
   }
+
   async reboot(id: number): Promise<boolean> {
     const res = await api.get(`/bots/reboot/${id}`);
     return res.data;
   }
+
   async getStatus(id: number): Promise<false | "stopped" | "started"> {
     const res = await api.get(`/bots/status/${id}`);
+    return res.data;
+  }
+
+  async sendMessage(categoryId: number, message: string, files: FileList) {
+    const formData = new FormData();
+    formData.append("categoryId", categoryId.toString()); // ⚡ Перетворюємо в рядок
+    formData.append("message", message);
+    Array.from(files).forEach((file) => {
+      formData.append("files", file); // Ensure 'files' matches @UploadedFiles()
+    });
+    const res = await api.post(`/bots/send-message`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
     return res.data;
   }
 }

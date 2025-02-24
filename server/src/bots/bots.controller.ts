@@ -7,11 +7,14 @@ import {
   Param,
   Post,
   Query,
+  UploadedFiles,
+  UseInterceptors,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
 import { BotsService } from './bots.service';
 import { CreateBotDto } from './dto/create-bot.dto';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 
 @Controller('bots')
 export class BotsController {
@@ -77,5 +80,18 @@ export class BotsController {
   @Get('/reboot/:id')
   async reboot(@Param('id') id: number) {
     return await this.botsService.reboot(Number(id));
+  }
+
+  @Post('send-message')
+  @UseInterceptors(FileFieldsInterceptor([{ name: 'files', maxCount: 10 }]))
+  async sendMessage(
+    @Body() body: { categoryId: number; message: string },
+    @UploadedFiles() files: { files?: Express.Multer.File[] },
+  ) {
+    return this.botsService.sendMessage(
+      body.categoryId,
+      body.message,
+      files.files,
+    );
   }
 }

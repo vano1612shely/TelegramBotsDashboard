@@ -1,10 +1,4 @@
-import {
-  IsArray,
-  IsBoolean,
-  IsNumber,
-  IsOptional,
-  IsString,
-} from 'class-validator';
+import { IsNumber, IsString } from 'class-validator';
 
 export class CreateClientDto {
   @IsString()
@@ -15,4 +9,7 @@ export class CreateClientDto {
 
   @IsNumber()
   category_id: number;
+
+  @IsNumber()
+  chat_id: number;
 }

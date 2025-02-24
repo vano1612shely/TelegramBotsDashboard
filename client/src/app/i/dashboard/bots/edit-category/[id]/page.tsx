@@ -12,17 +12,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Trash } from "lucide-react";
 import botCategoryService from "@/services/bot-category.service";
+import BotCategoryService from "@/services/bot-category.service";
 import toast from "react-hot-toast";
 import {
   editCategoryFormSchema,
   EditCategoryValues,
 } from "@/app/i/dashboard/bots/edit-category/[id]/formSchema";
 import { useParams } from "next/navigation";
-import BotCategoryService from "@/services/bot-category.service";
 
 export default function EditCategory() {
   const param = useParams();
-  console.log(param);
   const [imageUrl, setImageUrl] = useState<string>("");
   const { data: categoryData } = useQuery({
     queryKey: [`getCategory${param.id}`],

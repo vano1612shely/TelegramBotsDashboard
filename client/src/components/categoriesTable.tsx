@@ -10,7 +10,7 @@ import {
 import Image from "next/image";
 import { BotCategoryType } from "@/types/bot-category.type";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash } from "lucide-react";
+import {Pencil, Send, Trash} from "lucide-react";
 import Link from "next/link";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import BotCategoryService from "@/services/bot-category.service";
@@ -76,6 +76,11 @@ export default function CategoriesTable({ data }: { data: BotCategoryType[] }) {
                   <Button variant="destructive" onClick={() => mutate(item.id)}>
                     <Trash />
                   </Button>
+                  <Link href={`/i/dashboard/bots/send-message/${item.id}`}>
+                    <Button>
+                      <Send />
+                    </Button>
+                  </Link>
                 </TableCell>
               </TableRow>
             ))}

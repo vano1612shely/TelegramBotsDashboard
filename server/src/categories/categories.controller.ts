@@ -18,6 +18,7 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 @Controller('categories')
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
+
   @UsePipes(new ValidationPipe())
   @HttpCode(200)
   @Post('/create')
