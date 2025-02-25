@@ -32,7 +32,7 @@ export class ClientEntity {
   @JoinColumn({ name: 'category_id' })
   category: BotCategoryEntity;
 
-  @ManyToOne(() => BotCategoryEntity, (category) => category.bots, {
+  @ManyToOne(() => BotEntity, (bot) => bot.clients, {
     onDelete: 'SET NULL',
   })
   @JoinColumn({ name: 'bot_id' })
