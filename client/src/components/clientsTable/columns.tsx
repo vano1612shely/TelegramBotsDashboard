@@ -52,11 +52,12 @@ export const columns: ColumnDef<ClientType>[] = [
       );
     },
     cell: ({ row }) => {
-      return (
-        <Link href={`https://t.me/${row.original.username}`} target="_blank">
-          @{row.original.username}
-        </Link>
-      );
+      if (row.original.username)
+        return (
+          <Link href={`https://t.me/${row.original.username}`} target="_blank">
+            @{row.original.username}
+          </Link>
+        );
     },
   },
   {
