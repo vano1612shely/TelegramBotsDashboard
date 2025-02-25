@@ -57,10 +57,10 @@ export class BotsService {
           botItem.botInstance.launch();
           botItem.status = 'started';
         }
-        this.bots.push(botItem);
       } catch (e) {
         console.log(`cant run bot ${botItem.name}(${botItem.token})`);
       }
+      this.bots.push(botItem);
     }
   }
 
