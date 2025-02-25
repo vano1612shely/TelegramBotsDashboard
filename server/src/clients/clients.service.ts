@@ -63,7 +63,7 @@ export class ClientsService {
   async create(data: CreateClientDto) {
     const checkUser = await this.clientRepository.findOne({
       where: {
-        chat_id: data.chat_id,
+        chat_id: String(data.chat_id),
         category_id: data.category_id,
         bot_id: data.bot_id,
       },
@@ -74,7 +74,7 @@ export class ClientsService {
     if (checkUser) {
       return await this.clientRepository.update(
         {
-          chat_id: data.chat_id,
+          chat_id: String(data.chat_id),
           category_id: data.category_id,
           bot_id: data.bot_id,
         },
@@ -89,7 +89,7 @@ export class ClientsService {
       username: data.username,
       category: category,
       category_name: category.name,
-      chat_id: data.chat_id,
+      chat_id: String(data.chat_id),
       bot: bot,
     });
   }

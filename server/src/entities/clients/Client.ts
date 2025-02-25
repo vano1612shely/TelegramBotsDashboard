@@ -45,5 +45,5 @@ export class ClientEntity {
   category_name: string;
 
   @Column({ nullable: true })
-  chat_id: number;
+  chat_id: string;
 }
