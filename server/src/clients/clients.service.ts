@@ -63,14 +63,15 @@ export class ClientsService {
   async create(data: CreateClientDto) {
     const checkUser = await this.clientRepository.findOne({
       where: {
-        username: data.username,
+        chat_id: data.chat_id,
         category_id: data.category_id,
         bot_id: data.bot_id,
       },
       relations: { category: true },
     });
+    const bot = await this.botsService.getBot(data.bot_id);
+    const category = await this.categoryService.getCategory(data.category_id);
     if (checkUser) {
-      const bot = await this.botsService.getBot(data.bot_id);
       return await this.clientRepository.update(
         {
           username: data.username,
@@ -81,13 +82,13 @@ export class ClientsService {
         },
       );
     }
-    const category = await this.categoryService.getCategory(data.category_id);
     return await this.clientRepository.save({
       name: data.name,
       username: data.username,
       category: category,
       category_name: category.name,
       chat_id: data.chat_id,
+      bot: bot,
     });
   }
 
