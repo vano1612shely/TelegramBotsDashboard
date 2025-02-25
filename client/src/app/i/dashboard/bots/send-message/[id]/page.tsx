@@ -9,6 +9,8 @@ import { ChevronLeft, Loader2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import botService from "@/services/bot.service";
 import { useParams } from "next/navigation";
+import toast from "react-hot-toast";
+import axios from "axios";
 
 export default function SendMessage() {
   const [text, setText] = useState<string>("");
@@ -18,6 +20,14 @@ export default function SendMessage() {
     mutationKey: ["sendMessage"],
     mutationFn: () =>
       botService.sendMessage(param.id as number, text, files as FileList),
+    onError: (e) => {
+      if (axios.isAxiosError(e)) {
+        toast.error(e.response?.data || e.message);
+      }
+    },
+    onSuccess: () => {
+      toast.success("Повідомлення відправлено");
+    },
   });
   return (
     <Card>

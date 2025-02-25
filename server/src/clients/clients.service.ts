@@ -74,11 +74,13 @@ export class ClientsService {
     if (checkUser) {
       return await this.clientRepository.update(
         {
-          username: data.username,
+          chat_id: data.chat_id,
+          category_id: data.category_id,
+          bot_id: data.bot_id,
         },
         {
-          chat_id: data.chat_id,
-          bot: bot,
+          username: data.username,
+          name: data.name,
         },
       );
     }

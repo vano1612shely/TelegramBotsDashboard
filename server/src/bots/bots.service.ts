@@ -185,6 +185,11 @@ export class BotsService {
     return bots;
   }
 
+  private getBotById(id: number) {
+    const bots = this.bots.find((bot) => bot.id === Number(id));
+    return bots;
+  }
+
   async sendMessage(
     categoryId: number,
     message: string,
@@ -198,15 +203,13 @@ export class BotsService {
         console.log(`No clients found for category ${categoryId}`);
         return;
       }
-      const bot = this.getBotByCategory(categoryId);
-      if (!bot) {
-        console.log(`No bot found for category ${categoryId}`);
-        return;
-      }
-
       await Promise.allSettled(
         clients.map(async (client) => {
-          if (client.chat_id)
+          if (client.chat_id) {
+            const bot = this.getBotById(client.bot_id);
+            if (!bot) {
+              return;
+            }
             try {
               if (files && files.length > 0) {
                 // Створюємо масив фото для `sendMediaGroup`
@@ -236,10 +239,13 @@ export class BotsService {
             } catch (error) {
               console.error(`Error sending message to ${client.username}`);
             }
+          }
         }),
       );
+      return true;
     } catch (error) {
       console.error('sendMessage error:', error);
+      return Error('send message error');
     }
   }
 

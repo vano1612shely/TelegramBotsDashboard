@@ -17,7 +17,7 @@ export class ClientEntity {
   @Column({ nullable: true })
   username: string;
 
-  @Column()
+  @Column({ nullable: true })
   name: string;
 
   @CreateDateColumn()
