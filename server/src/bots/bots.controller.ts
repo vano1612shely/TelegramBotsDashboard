@@ -36,7 +36,6 @@ export class BotsController {
     @Query('select') select?: string[] | null,
     @Query('include_relations') includeRelations?: string | null,
   ) {
-    console.log(take_all);
     return await this.botsService.getAll(
       perPage ? Number(perPage) : null,
       page ? Number(page) : null,
