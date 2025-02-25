@@ -48,15 +48,19 @@ export class BotsService {
         ...bot,
         status: 'stopped',
       };
-      const res = await (
-        await fetch(`https://api.telegram.org/bot${bot.token}/getMe`)
-      ).json();
-      if (res.ok) {
-        this.botsHandler.addAllHandlers(botItem);
-        botItem.botInstance.launch();
-        botItem.status = 'started';
+      try {
+        const res = await (
+          await fetch(`https://api.telegram.org/bot${bot.token}/getMe`)
+        ).json();
+        if (res.ok) {
+          this.botsHandler.addAllHandlers(botItem);
+          botItem.botInstance.launch();
+          botItem.status = 'started';
+        }
+        this.bots.push(botItem);
+      } catch (e) {
+        console.log(`cant run bot ${botItem.name}(${botItem.token})`);
       }
-      this.bots.push(botItem);
     }
   }
 
