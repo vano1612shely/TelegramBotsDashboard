@@ -232,33 +232,44 @@ export class BotsService {
             }
 
             if (files && files.length > 0) {
-              const mediaGroup: InputMediaPhoto[] = files.map(
-                (file, index) => ({
-                  type: 'photo',
-                  media: { source: Buffer.from(file.buffer) },
-                  ...(index === files.length - 1
-                    ? {
-                        caption: message,
-                        parse_mode: 'HTML',
-                        replyMarkup: replyMarkup,
-                      }
-                    : {}),
-                }),
-              );
-
-              await bot.botInstance.telegram.sendMediaGroup(
-                client.chat_id,
-                mediaGroup,
-              );
-
-              if (replyMarkup) {
-                await bot.botInstance.telegram.sendMessage(
+              if (files.length === 1) {
+                await bot.botInstance.telegram.sendPhoto(
                   client.chat_id,
-                  buttonsMessageTitle || '🔗 Посилання:',
+                  { source: Buffer.from(files[0].buffer) },
                   {
-                    reply_markup: replyMarkup,
+                    caption: message,
+                    parse_mode: 'HTML',
+                    ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
                   },
                 );
+              } else {
+                const mediaGroup: InputMediaPhoto[] = files.map(
+                  (file, index) => ({
+                    type: 'photo',
+                    media: { source: Buffer.from(file.buffer) },
+                    ...(index === files.length - 1
+                      ? {
+                          caption: message,
+                          parse_mode: 'HTML',
+                        }
+                      : {}),
+                  }),
+                );
+
+                await bot.botInstance.telegram.sendMediaGroup(
+                  client.chat_id,
+                  mediaGroup,
+                );
+
+                if (replyMarkup) {
+                  await bot.botInstance.telegram.sendMessage(
+                    client.chat_id,
+                    buttonsMessageTitle || '🔗.',
+                    {
+                      reply_markup: replyMarkup,
+                    },
+                  );
+                }
               }
             } else {
               await bot.botInstance.telegram.sendMessage(

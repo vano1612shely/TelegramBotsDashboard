@@ -35,9 +35,6 @@ export default function SendMessage() {
         },
         onSuccess: () => {
             toast.success("Повідомлення відправлено");
-            setText("");
-            setFiles(null);
-            setButtons([]);
         },
     });
 
