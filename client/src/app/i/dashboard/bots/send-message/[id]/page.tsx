@@ -5,7 +5,7 @@ import {useState} from "react";
 import {Input} from "@/components/ui/input";
 import {Button} from "@/components/ui/button";
 import Link from "next/link";
-import {ChevronLeft, Loader2} from "lucide-react";
+import {ChevronLeft, Loader2, Trash2} from "lucide-react";
 import {useMutation} from "@tanstack/react-query";
 import botService from "@/services/bot.service";
 import {useParams} from "next/navigation";
@@ -26,7 +26,7 @@ export default function SendMessage() {
                 param.id as number,
                 text,
                 files as FileList,
-                buttons.filter((btn) => btn.title && btn.link) // очищаємо пусті кнопки
+                buttons.filter((btn) => btn.title && btn.link)
             ),
         onError: (e) => {
             if (axios.isAxiosError(e)) {
@@ -35,6 +35,9 @@ export default function SendMessage() {
         },
         onSuccess: () => {
             toast.success("Повідомлення відправлено");
+            setText("");
+            setFiles(null);
+            setButtons([]);
         },
     });
 
@@ -46,6 +49,39 @@ export default function SendMessage() {
         const updated = [...buttons];
         updated[index][field] = value;
         setButtons(updated);
+    };
+
+    const removeButton = (index: number) => {
+        setButtons(buttons.filter((_, i) => i !== index));
+    };
+
+    const validateForm = (): boolean => {
+        if (!text.trim()) {
+            toast.error("Текст повідомлення не може бути пустим");
+            return false;
+        }
+
+        for (let i = 0; i < buttons.length; i++) {
+            const btn = buttons[i];
+            if (!btn.title.trim()) {
+                toast.error(`Кнопка #${i + 1}: текст не може бути пустим`);
+                return false;
+            }
+
+            try {
+                new URL(btn.link); // Перевірка на валідне посилання
+            } catch {
+                toast.error(`Кнопка #${i + 1}: посилання не є валідним`);
+                return false;
+            }
+        }
+
+        return true;
+    };
+
+    const handleSubmit = () => {
+        if (!validateForm()) return;
+        mutate();
     };
 
     return (
@@ -83,7 +119,7 @@ export default function SendMessage() {
                     </div>
 
                     {buttons.map((btn, index) => (
-                        <div key={index} className="grid grid-cols-2 gap-3">
+                        <div key={index} className="grid grid-cols-[1fr_1fr_auto] gap-3 items-center">
                             <Input
                                 placeholder="Текст кнопки"
                                 value={btn.title}
@@ -92,15 +128,24 @@ export default function SendMessage() {
                             <Input
                                 placeholder="Посилання"
                                 value={btn.link}
+                                type="url"
                                 onChange={(e) => updateButton(index, "link", e.target.value)}
                             />
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                size="icon"
+                                onClick={() => removeButton(index)}
+                            >
+                                <Trash2 className="w-4 h-4"/>
+                            </Button>
                         </div>
                     ))}
                 </div>
 
                 <Button
                     className="bg-green-600"
-                    onClick={() => mutate()}
+                    onClick={handleSubmit}
                     disabled={isPending}
                 >
                     Відправити

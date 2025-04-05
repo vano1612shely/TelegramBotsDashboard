@@ -201,8 +201,7 @@ export class BotsService {
     buttons?: string,
     buttonsMessageTitle?: string,
   ) {
-    console.log(typeof buttons, buttons);
-    const btns = JSON.parse(buttons);
+    const parsedButtons = buttons ? JSON.parse(buttons) : [];
     try {
       const clients = await this.clientsService.findByCategory(
         Number(categoryId),
@@ -221,9 +220,9 @@ export class BotsService {
 
           try {
             let replyMarkup;
-            if (btns && btns.length) {
+            if (parsedButtons && parsedButtons.length) {
               replyMarkup = {
-                inline_keyboard: btns.map((btn) => [
+                inline_keyboard: parsedButtons.map((btn) => [
                   {
                     text: btn.title,
                     url: btn.link,
