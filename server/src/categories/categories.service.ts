@@ -54,9 +54,9 @@ export class CategoriesService {
     select: string[] | null,
     includeRelations: string | null,
   ) {
-    let include =
+    const include =
       typeof includeRelations === 'string' ? includeRelations == 'true' : true;
-    let offset =
+    const offset =
       typeof perPage == 'number' && typeof page == 'number'
         ? (page - 1) * perPage
         : 0;

@@ -84,13 +84,14 @@ export class BotsController {
   @Post('send-message')
   @UseInterceptors(FileFieldsInterceptor([{ name: 'files', maxCount: 10 }]))
   async sendMessage(
-    @Body() body: { categoryId: number; message: string },
+    @Body() body: { categoryId: number; message: string; buttons: string },
     @UploadedFiles() files: { files?: Express.Multer.File[] },
   ) {
     return this.botsService.sendMessage(
       body.categoryId,
       body.message,
       files.files,
+      body.buttons,
     );
   }
 }

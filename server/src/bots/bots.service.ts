@@ -198,7 +198,11 @@ export class BotsService {
     categoryId: number,
     message: string,
     files?: Express.Multer.File[],
+    buttons?: string,
+    buttonsMessageTitle?: string,
   ) {
+    console.log(typeof buttons, buttons);
+    const btns = JSON.parse(buttons);
     try {
       const clients = await this.clientsService.findByCategory(
         Number(categoryId),
@@ -207,49 +211,79 @@ export class BotsService {
         console.log(`No clients found for category ${categoryId}`);
         return;
       }
+
       await Promise.allSettled(
         clients.map(async (client) => {
-          if (client.chat_id) {
-            const bot = this.getBotById(client.bot_id);
-            if (!bot) {
-              return;
-            }
-            try {
-              if (files && files.length > 0) {
-                // Створюємо масив фото для `sendMediaGroup`
-                const mediaGroup: InputMediaPhoto[] = files.map(
-                  (file, index) => ({
-                    type: 'photo',
-                    media: { source: Buffer.from(file.buffer) },
-                    ...(index === files.length - 1
-                      ? { caption: message, parse_mode: 'HTML' }
-                      : {}),
-                  }),
-                );
+          if (!client.chat_id) return;
 
-                await bot.botInstance.telegram.sendMediaGroup(
-                  client.chat_id,
-                  mediaGroup,
-                );
-              } else {
+          const bot = this.getBotById(client.bot_id);
+          if (!bot) return;
+
+          try {
+            let replyMarkup;
+            if (btns && btns.length) {
+              replyMarkup = {
+                inline_keyboard: btns.map((btn) => [
+                  {
+                    text: btn.title,
+                    url: btn.link,
+                  },
+                ]),
+              };
+            }
+
+            if (files && files.length > 0) {
+              const mediaGroup: InputMediaPhoto[] = files.map(
+                (file, index) => ({
+                  type: 'photo',
+                  media: { source: Buffer.from(file.buffer) },
+                  ...(index === files.length - 1
+                    ? {
+                        caption: message,
+                        parse_mode: 'HTML',
+                        replyMarkup: replyMarkup,
+                      }
+                    : {}),
+                }),
+              );
+
+              await bot.botInstance.telegram.sendMediaGroup(
+                client.chat_id,
+                mediaGroup,
+              );
+
+              if (replyMarkup) {
                 await bot.botInstance.telegram.sendMessage(
                   client.chat_id,
-                  message,
+                  buttonsMessageTitle || '🔗 Посилання:',
                   {
-                    parse_mode: 'HTML',
+                    reply_markup: replyMarkup,
                   },
                 );
               }
-            } catch (error) {
-              console.error(`Error sending message to ${client.username}`);
+            } else {
+              await bot.botInstance.telegram.sendMessage(
+                client.chat_id,
+                message,
+                {
+                  parse_mode: 'HTML',
+                  ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+                },
+              );
             }
+          } catch (error) {
+            console.error(
+              `Error sending message to ${client.username}:`,
+              error,
+            );
           }
         }),
       );
+
       return true;
     } catch (error) {
       console.error('sendMessage error:', error);
-      return Error('send message error');
+      return new Error('send message error');
     }
   }
 
