@@ -203,84 +203,113 @@ export class BotsService {
   ) {
     const parsedButtons = buttons ? JSON.parse(buttons) : [];
 
-    // Налаштування для rate limiting
-    const DELAY_BETWEEN_MESSAGES = 100; // мс між повідомленнями для одного бота
-    const DELAY_BETWEEN_BOTS = 50; // мс між ботами
-    const REQUEST_TIMEOUT = 10000; // 10 секунд тайм-аут для кожного запиту
-    const MAX_CONCURRENT_BOTS = 5; // максимум одночасних ботів
+    // Налаштування для rate limiting та паралелізму
+    const DELAY_BETWEEN_MESSAGES = 50; // мс між повідомленнями
+    const DELAY_BETWEEN_BOTS = 30; // мс між ботами
+    const REQUEST_TIMEOUT = 8000; // 8 секунд тайм-аут
+    const MAX_CONCURRENT_THREADS = 3; // кількість паралельних потоків
+    const MESSAGES_PER_THREAD = 10; // повідомлень на потік одночасно
 
     try {
-      const clients = await this.clientsService.findByCategory(
-        Number(categoryId),
+      const clients = await this.clientsService.getAll(
+        null,
+        null,
+        'true',
+        null,
+        null,
       );
 
       if (!clients.length) {
-        console.log(`No clients found for category ${categoryId}`);
+        console.log(`No clients found`);
         return;
       }
 
-      // Створюємо масив усіх завдань для відправки
-      const sendTasks = [];
+      // Отримуємо всі доступні боти
+      const allBots = [];
+      const botIds = new Set();
 
       for (const client of clients) {
-        if (!client.chat_id) continue;
-
         for (const botEntity of client.bots || []) {
-          const bot = this.getBotById(botEntity.id);
-          if (!bot) continue;
+          if (!botIds.has(botEntity.id)) {
+            const bot = this.getBotById(botEntity.id);
+            if (bot) {
+              allBots.push({ bot, botEntity });
+              botIds.add(botEntity.id);
+            }
+          }
+        }
+      }
 
-          sendTasks.push({
-            client,
+      if (!allBots.length) {
+        console.log('No bots available');
+        return;
+      }
+
+      console.log(
+        `Starting message sending: ${allBots.length} bots, ${clients.length} clients`,
+      );
+
+      // Створюємо завдання для кожної пари бот-клієнт
+      const allTasks = [];
+      for (const { bot, botEntity } of allBots) {
+        for (const client of clients) {
+          if (!client.chat_id) continue;
+
+          allTasks.push({
             bot,
             botEntity,
+            client,
           });
         }
       }
 
-      // Функція для відправки повідомлення з тайм-аутом
-      const sendWithTimeout = async (task, delay = 0) => {
-        if (delay > 0) {
-          await this.sleep(delay);
+      // Розділяємо завдання на потоки
+      const chunks = this.chunkArray(
+        allTasks,
+        Math.ceil(allTasks.length / MAX_CONCURRENT_THREADS),
+      );
+
+      // Запускаємо потоки паралельно
+      const threadPromises = chunks.map((chunk, threadIndex) =>
+        this.processThread(
+          chunk,
+          threadIndex,
+          message,
+          files,
+          parsedButtons,
+          buttonsMessageTitle,
+          {
+            DELAY_BETWEEN_MESSAGES,
+            DELAY_BETWEEN_BOTS,
+            REQUEST_TIMEOUT,
+            MESSAGES_PER_THREAD,
+          },
+        ),
+      );
+
+      const threadResults = await Promise.allSettled(threadPromises);
+
+      // Збираємо статистику
+      let totalSuccessful = 0;
+      let totalFailed = 0;
+      let totalProcessed = 0;
+
+      threadResults.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          const stats = result.value;
+          totalSuccessful += stats.successful;
+          totalFailed += stats.failed;
+          totalProcessed += stats.processed;
+          console.log(
+            `Thread ${index}: ${stats.successful} successful, ${stats.failed} failed`,
+          );
+        } else {
+          console.error(`Thread ${index} failed:`, result.reason);
         }
-
-        return Promise.race([
-          this.sendSingleMessage(
-            task.client,
-            task.bot,
-            task.botEntity,
-            message,
-            files,
-            parsedButtons,
-            buttonsMessageTitle,
-          ),
-          this.createTimeoutPromise(REQUEST_TIMEOUT),
-        ]);
-      };
-
-      // Обробляємо завдання батчами для контролю навантаження
-      const results = [];
-      for (let i = 0; i < sendTasks.length; i += MAX_CONCURRENT_BOTS) {
-        const batch = sendTasks.slice(i, i + MAX_CONCURRENT_BOTS);
-
-        const batchPromises = batch.map((task, index) =>
-          sendWithTimeout(task, index * DELAY_BETWEEN_BOTS),
-        );
-
-        const batchResults = await Promise.allSettled(batchPromises);
-        results.push(...batchResults);
-
-        // Затримка між батчами, якщо є ще завдання
-        if (i + MAX_CONCURRENT_BOTS < sendTasks.length) {
-          await this.sleep(DELAY_BETWEEN_MESSAGES);
-        }
-      }
-
-      // Логування результатів
-      const successful = results.filter((r) => r.status === 'fulfilled').length;
-      const failed = results.length - successful;
+      });
 
       console.log(
-        `Message sending completed: ${successful} successful, ${failed} failed out of ${results.length} total`,
+        `Total: ${totalSuccessful} successful, ${totalFailed} failed, ${totalProcessed} processed`,
       );
 
       return true;
@@ -290,7 +319,128 @@ export class BotsService {
     }
   }
 
-  // Допоміжний метод для відправки одного повідомлення
+  // Обробка одного потоку
+  private async processThread(
+    tasks: any[],
+    threadIndex: number,
+    message: string,
+    files?: Express.Multer.File[],
+    parsedButtons?: any[],
+    buttonsMessageTitle?: string,
+    config?: any,
+  ) {
+    const stats = { successful: 0, failed: 0, processed: 0 };
+
+    // Обробляємо завдання батчами в межах потоку
+    for (let i = 0; i < tasks.length; i += config.MESSAGES_PER_THREAD) {
+      const batch = tasks.slice(i, i + config.MESSAGES_PER_THREAD);
+
+      const batchPromises = batch.map(async (task, index) => {
+        // Додаємо затримку для розподілу навантаження
+        const delay = threadIndex * 100 + index * config.DELAY_BETWEEN_MESSAGES;
+        await this.sleep(delay);
+
+        return this.sendWithRetry(
+          task,
+          message,
+          files,
+          parsedButtons,
+          buttonsMessageTitle,
+          config.REQUEST_TIMEOUT,
+        );
+      });
+
+      const batchResults = await Promise.allSettled(batchPromises);
+
+      // Підраховуємо результати батчу
+      batchResults.forEach((result) => {
+        stats.processed++;
+        if (result.status === 'fulfilled' && result.value?.success) {
+          stats.successful++;
+        } else {
+          stats.failed++;
+        }
+      });
+
+      // Затримка між батчами в потоці
+      if (i + config.MESSAGES_PER_THREAD < tasks.length) {
+        await this.sleep(config.DELAY_BETWEEN_BOTS);
+      }
+    }
+
+    return stats;
+  }
+
+  // Відправка з повторними спробами та обробкою помилок
+  private async sendWithRetry(
+    task: any,
+    message: string,
+    files?: Express.Multer.File[],
+    parsedButtons?: any[],
+    buttonsMessageTitle?: string,
+    timeout: number = 8000,
+    maxRetries: number = 2,
+  ): Promise<{ success: boolean; error?: any }> {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await Promise.race([
+          this.sendSingleMessage(
+            task.client,
+            task.bot,
+            task.botEntity,
+            message,
+            files,
+            parsedButtons,
+            buttonsMessageTitle,
+          ),
+          this.createTimeoutPromise(timeout),
+        ]);
+
+        return { success: true, ...result };
+      } catch (error) {
+        // Обробляємо різні типи помилок
+        if (error.response?.error_code === 429) {
+          // Rate limit - чекаємо та повторюємо
+          const retryAfter = Math.min(
+            error.response.parameters?.retry_after || 1,
+            10,
+          );
+          await this.sleep(retryAfter * 1000);
+          continue;
+        }
+
+        if (error.response?.error_code === 403) {
+          // Бот заблокований користувачем - пропускаємо
+          return { success: false, error: 'Bot blocked by user' };
+        }
+
+        if (error.response?.error_code === 400) {
+          // Неправильні дані - пропускаємо
+          return { success: false, error: 'Bad request' };
+        }
+
+        if (error.message?.includes('timeout')) {
+          // Тайм-аут - пробуємо ще раз якщо є спроби
+          if (attempt < maxRetries) {
+            await this.sleep(1000 * (attempt + 1)); // Експоненційна затримка
+            continue;
+          }
+        }
+
+        // Для останньої спроби або невідомих помилок
+        if (attempt === maxRetries) {
+          return { success: false, error: error.message || 'Unknown error' };
+        }
+
+        // Затримка перед повторною спробою
+        await this.sleep(500 * (attempt + 1));
+      }
+    }
+
+    return { success: false, error: 'Max retries exceeded' };
+  }
+
+  // Допоміжний метод для відправки одного повідомлення (оптимізований)
   private async sendSingleMessage(
     client: any,
     bot: any,
@@ -300,93 +450,73 @@ export class BotsService {
     parsedButtons?: any[],
     buttonsMessageTitle?: string,
   ) {
-    try {
-      let replyMarkup;
-      if (parsedButtons && parsedButtons.length) {
-        replyMarkup = {
-          inline_keyboard: parsedButtons.map((btn) => [
-            {
-              text: btn.title,
-              url: btn.link,
-            },
-          ]),
-        };
-      }
-
-      if (files && files.length > 0) {
-        if (files.length === 1) {
-          await bot.botInstance.telegram.sendPhoto(
-            client.chat_id,
-            { source: Buffer.from(files[0].buffer) },
-            {
-              caption: message,
-              parse_mode: 'HTML',
-              ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-            },
-          );
-        } else {
-          const mediaGroup: InputMediaPhoto[] = files.map((file, index) => ({
-            type: 'photo',
-            media: { source: Buffer.from(file.buffer) },
-            ...(index === files.length - 1
-              ? { caption: message, parse_mode: 'HTML' }
-              : {}),
-          }));
-
-          await bot.botInstance.telegram.sendMediaGroup(
-            client.chat_id,
-            mediaGroup,
-          );
-
-          if (replyMarkup) {
-            // Додаткова затримка перед відправкою кнопок після media group
-            await this.sleep(200);
-            await bot.botInstance.telegram.sendMessage(
-              client.chat_id,
-              buttonsMessageTitle || '🔗.',
-              {
-                reply_markup: replyMarkup,
-              },
-            );
-          }
-        }
-      } else {
-        await bot.botInstance.telegram.sendMessage(client.chat_id, message, {
-          parse_mode: 'HTML',
-          ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-        });
-      }
-
-      return { success: true, client: client.username, bot: botEntity.id };
-    } catch (error) {
-      console.error(
-        `Error sending message to ${client.username} via bot ${botEntity.id}:`,
-        error,
-      );
-
-      // Якщо помилка rate limit, збільшуємо затримку
-      if (error.response?.error_code === 429) {
-        const retryAfter = error.response.parameters?.retry_after || 1;
-        console.log(`Rate limited, waiting ${retryAfter} seconds before retry`);
-        await this.sleep(retryAfter * 1000);
-
-        // Повторна спроба
-        return this.sendSingleMessage(
-          client,
-          bot,
-          botEntity,
-          message,
-          files,
-          parsedButtons,
-          buttonsMessageTitle,
-        );
-      }
-
-      throw error;
+    let replyMarkup;
+    if (parsedButtons && parsedButtons.length) {
+      replyMarkup = {
+        inline_keyboard: parsedButtons.map((btn) => [
+          {
+            text: btn.title,
+            url: btn.link,
+          },
+        ]),
+      };
     }
+
+    if (files && files.length > 0) {
+      if (files.length === 1) {
+        await bot.botInstance.telegram.sendPhoto(
+          client.chat_id,
+          { source: Buffer.from(files[0].buffer) },
+          {
+            caption: message,
+            parse_mode: 'HTML',
+            ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+          },
+        );
+      } else {
+        const mediaGroup: InputMediaPhoto[] = files.map((file, index) => ({
+          type: 'photo',
+          media: { source: Buffer.from(file.buffer) },
+          ...(index === files.length - 1
+            ? { caption: message, parse_mode: 'HTML' }
+            : {}),
+        }));
+
+        await bot.botInstance.telegram.sendMediaGroup(
+          client.chat_id,
+          mediaGroup,
+        );
+
+        if (replyMarkup) {
+          await this.sleep(100);
+          await bot.botInstance.telegram.sendMessage(
+            client.chat_id,
+            buttonsMessageTitle || '🔗.',
+            {
+              reply_markup: replyMarkup,
+            },
+          );
+        }
+      }
+    } else {
+      await bot.botInstance.telegram.sendMessage(client.chat_id, message, {
+        parse_mode: 'HTML',
+        ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+      });
+    }
+
+    return { success: true, client: client.username, bot: botEntity.id };
   }
 
-  // Допоміжний метод для створення тайм-ауту
+  // Допоміжні методи
+  private chunkArray<T>(array: T[], chunkSize: number): T[][] {
+    const chunks = [];
+    for (let i = 0; i < array.length; i += chunkSize) {
+      chunks.push(array.slice(i, i + chunkSize));
+    }
+    return chunks;
+  }
+
   private createTimeoutPromise(ms: number): Promise<never> {
     return new Promise((_, reject) => {
       setTimeout(() => {
@@ -395,7 +525,6 @@ export class BotsService {
     });
   }
 
-  // Допоміжний метод для затримки
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
