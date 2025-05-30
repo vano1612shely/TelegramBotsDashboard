@@ -2,8 +2,8 @@ import {
   Column,
   Entity,
   JoinColumn,
+  ManyToMany,
   ManyToOne,
-  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { BotCategoryEntity } from './BotCategory';
@@ -25,10 +25,10 @@ export class BotEntity {
 
   @Column()
   category_id: number;
-  @OneToMany(() => ClientEntity, (client) => client.category, {
-    onDelete: 'SET NULL',
-  })
+
+  @ManyToMany(() => ClientEntity, (client) => client.bots)
   clients: ClientEntity[];
+
   @ManyToOne(() => BotCategoryEntity, (category) => category.bots, {
     onDelete: 'CASCADE',
   })

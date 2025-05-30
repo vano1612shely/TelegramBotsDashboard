@@ -202,10 +202,12 @@ export class BotsService {
     buttonsMessageTitle?: string,
   ) {
     const parsedButtons = buttons ? JSON.parse(buttons) : [];
+
     try {
       const clients = await this.clientsService.findByCategory(
         Number(categoryId),
       );
+
       if (!clients.length) {
         console.log(`No clients found for category ${categoryId}`);
         return;
@@ -215,77 +217,76 @@ export class BotsService {
         clients.map(async (client) => {
           if (!client.chat_id) return;
 
-          const bot = this.getBotById(client.bot_id);
-          if (!bot) return;
+          for (const botEntity of client.bots || []) {
+            const bot = this.getBotById(botEntity.id);
+            if (!bot) continue;
 
-          try {
-            let replyMarkup;
-            if (parsedButtons && parsedButtons.length) {
-              replyMarkup = {
-                inline_keyboard: parsedButtons.map((btn) => [
-                  {
-                    text: btn.title,
-                    url: btn.link,
-                  },
-                ]),
-              };
-            }
+            try {
+              let replyMarkup;
+              if (parsedButtons && parsedButtons.length) {
+                replyMarkup = {
+                  inline_keyboard: parsedButtons.map((btn) => [
+                    {
+                      text: btn.title,
+                      url: btn.link,
+                    },
+                  ]),
+                };
+              }
 
-            if (files && files.length > 0) {
-              if (files.length === 1) {
-                await bot.botInstance.telegram.sendPhoto(
+              if (files && files.length > 0) {
+                if (files.length === 1) {
+                  await bot.botInstance.telegram.sendPhoto(
+                    client.chat_id,
+                    { source: Buffer.from(files[0].buffer) },
+                    {
+                      caption: message,
+                      parse_mode: 'HTML',
+                      ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+                    },
+                  );
+                } else {
+                  const mediaGroup: InputMediaPhoto[] = files.map(
+                    (file, index) => ({
+                      type: 'photo',
+                      media: { source: Buffer.from(file.buffer) },
+                      ...(index === files.length - 1
+                        ? { caption: message, parse_mode: 'HTML' }
+                        : {}),
+                    }),
+                  );
+
+                  await bot.botInstance.telegram.sendMediaGroup(
+                    client.chat_id,
+                    mediaGroup,
+                  );
+
+                  if (replyMarkup) {
+                    await bot.botInstance.telegram.sendMessage(
+                      client.chat_id,
+                      buttonsMessageTitle || '🔗.',
+                      {
+                        reply_markup: replyMarkup,
+                      },
+                    );
+                  }
+                }
+              } else {
+                await bot.botInstance.telegram.sendMessage(
                   client.chat_id,
-                  { source: Buffer.from(files[0].buffer) },
+                  message,
                   {
-                    caption: message,
                     parse_mode: 'HTML',
                     ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
                   },
                 );
-              } else {
-                const mediaGroup: InputMediaPhoto[] = files.map(
-                  (file, index) => ({
-                    type: 'photo',
-                    media: { source: Buffer.from(file.buffer) },
-                    ...(index === files.length - 1
-                      ? {
-                          caption: message,
-                          parse_mode: 'HTML',
-                        }
-                      : {}),
-                  }),
-                );
-
-                await bot.botInstance.telegram.sendMediaGroup(
-                  client.chat_id,
-                  mediaGroup,
-                );
-
-                if (replyMarkup) {
-                  await bot.botInstance.telegram.sendMessage(
-                    client.chat_id,
-                    buttonsMessageTitle || '🔗.',
-                    {
-                      reply_markup: replyMarkup,
-                    },
-                  );
-                }
               }
-            } else {
-              await bot.botInstance.telegram.sendMessage(
-                client.chat_id,
-                message,
-                {
-                  parse_mode: 'HTML',
-                  ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-                },
+            } catch (error) {
+              console.error(
+                `Error sending message to ${client.username} via bot ${botEntity.id}:`,
+                error,
               );
             }
-          } catch (error) {
-            console.error(
-              `Error sending message to ${client.username}:`,
-              error,
-            );
           }
         }),
       );

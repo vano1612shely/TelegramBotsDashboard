@@ -61,37 +61,41 @@ export class ClientsService {
   }
 
   async create(data: CreateClientDto) {
-    const checkUser = await this.clientRepository.findOne({
-      where: {
-        chat_id: String(data.chat_id),
-        category_id: data.category_id,
-        bot_id: data.bot_id,
-      },
-      relations: { category: true },
-    });
+    const chat_id = String(data.chat_id);
+
     const bot = await this.botsService.getBot(data.bot_id);
     const category = await this.categoryService.getCategory(data.category_id);
-    if (checkUser) {
-      return await this.clientRepository.update(
-        {
-          chat_id: String(data.chat_id),
-          category_id: data.category_id,
-          bot_id: data.bot_id,
-        },
-        {
-          username: data.username,
-          name: data.name,
-        },
-      );
+
+    const client = await this.clientRepository.findOne({
+      where: {
+        chat_id,
+        category_id: data.category_id,
+      },
+      relations: ['bots', 'category'],
+    });
+
+    if (client) {
+      const alreadyLinked = client.bots?.some((b) => b.id === bot.id);
+
+      if (!alreadyLinked) {
+        client.bots.push(bot);
+      }
+
+      client.name = data.name;
+      client.username = data.username;
+
+      return await this.clientRepository.save(client);
     }
-    return await this.clientRepository.save({
+    const newClient = this.clientRepository.create({
       name: data.name,
       username: data.username,
-      category: category,
+      chat_id,
+      category,
       category_name: category.name,
-      chat_id: String(data.chat_id),
-      bot: bot,
+      bots: [bot],
     });
+
+    return await this.clientRepository.save(newClient);
   }
 
   async delete(id: number) {
