@@ -2,10 +2,8 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  JoinColumn,
   JoinTable,
   ManyToMany,
-  ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { BotCategoryEntity } from '../bots/BotCategory';
@@ -26,19 +24,13 @@ export class ClientEntity {
   created_at: Date;
 
   @Column({ nullable: true })
-  category_id: number;
-
-  @ManyToOne(() => BotCategoryEntity, (category) => category.bots, {
-    onDelete: 'SET NULL',
-  })
-  @JoinColumn({ name: 'category_id' })
-  category: BotCategoryEntity;
+  chat_id: string;
 
   @ManyToMany(() => BotEntity, (bot) => bot.clients, {
     cascade: true,
   })
   @JoinTable({
-    name: 'client_bot', // назва таблиці зв'язку
+    name: 'client_bot',
     joinColumn: {
       name: 'client_id',
       referencedColumnName: 'id',
@@ -50,9 +42,19 @@ export class ClientEntity {
   })
   bots: BotEntity[];
 
-  @Column({ nullable: true })
-  category_name: string;
-
-  @Column({ nullable: true })
-  chat_id: string;
+  @ManyToMany(() => BotCategoryEntity, (category) => category.clients, {
+    cascade: true,
+  })
+  @JoinTable({
+    name: 'client_category',
+    joinColumn: {
+      name: 'client_id',
+      referencedColumnName: 'id',
+    },
+    inverseJoinColumn: {
+      name: 'category_id',
+      referencedColumnName: 'id',
+    },
+  })
+  categories: BotCategoryEntity[];
 }

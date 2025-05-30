@@ -1,4 +1,10 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  ManyToMany,
+  OneToMany,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { BotEntity } from './Bot';
 import { BotButtonEntity } from './BotButton';
 import { ClientEntity } from '../clients/Client';
@@ -17,14 +23,12 @@ export class BotCategoryEntity {
   @OneToMany(() => BotButtonEntity, (button) => button.category)
   buttons: BotButtonEntity[];
 
-  @OneToMany(() => ClientEntity, (client) => client.category, {
-    onDelete: 'SET NULL',
-  })
-  clients: ClientEntity[];
-
   @Column({ nullable: true })
   text: string;
 
   @Column()
   image_link: string;
+
+  @ManyToMany(() => ClientEntity, (client) => client.categories)
+  clients: ClientEntity[];
 }

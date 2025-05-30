@@ -18,7 +18,6 @@ export class BotsHandler {
           chat_id: ctx.message.from.id,
           bot_id: bot.id,
         };
-        console.log(data);
         await this.clientsService.create(data);
       } catch (e) {
         console.log(e);
