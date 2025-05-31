@@ -338,7 +338,6 @@ export class BotsService {
 
       const batchResults = await Promise.allSettled(batchPromises);
 
-      // Підраховуємо результати батчу
       batchResults.forEach((result) => {
         stats.processed++;
         if (result.status === 'fulfilled' && result.value?.success) {
@@ -348,7 +347,6 @@ export class BotsService {
         }
       });
 
-      // Затримка між батчами в потоці
       if (i + config.MESSAGES_PER_THREAD < tasks.length) {
         await this.sleep(config.DELAY_BETWEEN_BOTS);
       }
@@ -393,9 +391,8 @@ export class BotsService {
           await this.sleep(retryAfter * 1000);
           continue;
         }
-        console.log(error.response);
         if (error.response?.error_code === 403) {
-          // Бот заблокований користувачем - пропускаємо
+          console.log(error.response);
           return { success: false, error: 'Bot blocked by user' };
         }
 
@@ -403,7 +400,7 @@ export class BotsService {
           // Неправильні дані - пропускаємо
           return { success: false, error: 'Bad request' };
         }
-
+        console.log(error.response);
         if (error.message?.includes('timeout')) {
           // Тайм-аут - пробуємо ще раз якщо є спроби
           if (attempt < maxRetries) {
@@ -484,7 +481,6 @@ export class BotsService {
         ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
       });
     }
-
     return { success: true, client: client.username };
   }
 
