@@ -33,7 +33,7 @@ export class BotsService {
     private readonly botsHandler: BotsHandler,
     private readonly clientsService: ClientsService,
   ) {
-    this.init().then(() => 'bots init');
+    // this.init().then(() => 'bots init');
   }
 
   async init() {
@@ -204,11 +204,11 @@ export class BotsService {
     const parsedButtons = buttons ? JSON.parse(buttons) : [];
 
     // Налаштування для rate limiting та паралелізму
-    const DELAY_BETWEEN_MESSAGES = 50; // мс між повідомленнями
-    const DELAY_BETWEEN_BOTS = 30; // мс між ботами
+    const DELAY_BETWEEN_MESSAGES = 100; // мс між повідомленнями
+    const DELAY_BETWEEN_BOTS = 50; // мс між ботами
     const REQUEST_TIMEOUT = 8000; // 8 секунд тайм-аут
     const MAX_CONCURRENT_THREADS = 3; // кількість паралельних потоків
-    const MESSAGES_PER_THREAD = 10; // повідомлень на потік одночасно
+    const MESSAGES_PER_THREAD = 5; // повідомлень на потік одночасно
 
     try {
       const clients = await this.clientsService.getAll(
@@ -379,7 +379,7 @@ export class BotsService {
     parsedButtons?: any[],
     buttonsMessageTitle?: string,
     timeout: number = 8000,
-    maxRetries: number = 2,
+    maxRetries: number = 1,
   ): Promise<{ success: boolean; error?: any }> {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -408,7 +408,7 @@ export class BotsService {
           await this.sleep(retryAfter * 1000);
           continue;
         }
-
+        console.log(error.response);
         if (error.response?.error_code === 403) {
           // Бот заблокований користувачем - пропускаємо
           return { success: false, error: 'Bot blocked by user' };
@@ -440,7 +440,6 @@ export class BotsService {
     return { success: false, error: 'Max retries exceeded' };
   }
 
-  // Допоміжний метод для відправки одного повідомлення (оптимізований)
   private async sendSingleMessage(
     client: any,
     bot: any,
