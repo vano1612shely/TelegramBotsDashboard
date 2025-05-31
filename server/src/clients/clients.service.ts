@@ -84,7 +84,6 @@ export class ClientsService {
     const bot = await this.botsService.getBot(data.bot_id);
     const category = await this.categoryService.getCategory(data.category_id);
 
-    // Шукаємо клієнта тільки по chat_id (бо тепер багато категорій)
     const client = await this.clientRepository.findOne({
       where: { chat_id },
       relations: ['bots', 'categories'],
@@ -107,7 +106,7 @@ export class ClientsService {
       client.name = data.name;
       client.username = data.username;
 
-      return await this.clientRepository.save(client);
+      return await this.clientRepository.update({ chat_id: chat_id }, client);
     }
 
     const newClient = this.clientRepository.create({
