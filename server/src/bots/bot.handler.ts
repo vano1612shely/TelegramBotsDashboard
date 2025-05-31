@@ -19,21 +19,22 @@ export class BotsHandler {
           bot_id: bot.id,
         };
         await this.clientsService.create(data);
+
+        const buttons = [];
+        bot.category.buttons.map((button) => {
+          buttons.push([Markup.button.url(button.title, button.link)]);
+        });
+        await ctx.sendPhoto(
+          { url: bot.category.image_link },
+          {
+            caption: bot.category.text,
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard(buttons),
+          },
+        );
       } catch (e) {
         console.log(e);
       }
-      const buttons = [];
-      bot.category.buttons.map((button) => {
-        buttons.push([Markup.button.url(button.title, button.link)]);
-      });
-      await ctx.sendPhoto(
-        { url: bot.category.image_link },
-        {
-          caption: bot.category.text,
-          parse_mode: 'HTML',
-          ...Markup.inlineKeyboard(buttons),
-        },
-      );
     });
   }
 
