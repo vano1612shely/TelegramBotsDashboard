@@ -33,7 +33,7 @@ export class BotsService {
     private readonly botsHandler: BotsHandler,
     private readonly clientsService: ClientsService,
   ) {
-    // this.init().then(() => 'bots init');
+    this.init().then(() => 'bots init');
   }
 
   async init() {
@@ -48,18 +48,18 @@ export class BotsService {
         ...bot,
         status: 'stopped',
       };
-      try {
-        const res = await (
-          await fetch(`https://api.telegram.org/bot${bot.token}/getMe`)
-        ).json();
-        if (res.ok) {
-          this.botsHandler.addAllHandlers(botItem);
-          botItem.botInstance.launch();
-          botItem.status = 'started';
-        }
-      } catch (e) {
-        console.log(`cant run bot ${botItem.name}(${botItem.token})`);
-      }
+      // try {
+      //   const res = await (
+      //     await fetch(`https://api.telegram.org/bot${bot.token}/getMe`)
+      //   ).json();
+      //   if (res.ok) {
+      //     this.botsHandler.addAllHandlers(botItem);
+      //     botItem.botInstance.launch();
+      //     botItem.status = 'started';
+      //   }
+      // } catch (e) {
+      //   console.log(`cant run bot ${botItem.name}(${botItem.token})`);
+      // }
       this.bots.push(botItem);
     }
   }
