@@ -224,40 +224,23 @@ export class BotsService {
         return;
       }
 
-      // Отримуємо всі доступні боти
-      const allBots = [];
-      const botIds = new Set();
+      const bots = this.getBotsByCategory(categoryId);
 
-      for (const client of clients) {
-        for (const botEntity of client.bots || []) {
-          if (!botIds.has(botEntity.id)) {
-            const bot = this.getBotById(botEntity.id);
-            if (bot) {
-              allBots.push({ bot, botEntity });
-              botIds.add(botEntity.id);
-            }
-          }
-        }
-      }
-
-      if (!allBots.length) {
+      if (!bots.length) {
         console.log('No bots available');
         return;
       }
 
       console.log(
-        `Starting message sending: ${allBots.length} bots, ${clients.length} clients`,
+        `Starting message sending: ${bots.length} bots, ${clients.length} clients`,
       );
-
-      // Створюємо завдання для кожної пари бот-клієнт
       const allTasks = [];
-      for (const { bot, botEntity } of allBots) {
+      for (const { botInstance } of bots) {
         for (const client of clients) {
           if (!client.chat_id) continue;
 
           allTasks.push({
-            bot,
-            botEntity,
+            botInstance,
             client,
           });
         }
@@ -386,8 +369,7 @@ export class BotsService {
         const result = await Promise.race([
           this.sendSingleMessage(
             task.client,
-            task.bot,
-            task.botEntity,
+            task.botInstance,
             message,
             files,
             parsedButtons,
@@ -443,7 +425,6 @@ export class BotsService {
   private async sendSingleMessage(
     client: any,
     bot: any,
-    botEntity: any,
     message: string,
     files?: Express.Multer.File[],
     parsedButtons?: any[],
@@ -463,7 +444,7 @@ export class BotsService {
 
     if (files && files.length > 0) {
       if (files.length === 1) {
-        await bot.botInstance.telegram.sendPhoto(
+        await bot.telegram.sendPhoto(
           client.chat_id,
           { source: Buffer.from(files[0].buffer) },
           {
@@ -481,14 +462,11 @@ export class BotsService {
             : {}),
         }));
 
-        await bot.botInstance.telegram.sendMediaGroup(
-          client.chat_id,
-          mediaGroup,
-        );
+        await bot.telegram.sendMediaGroup(client.chat_id, mediaGroup);
 
         if (replyMarkup) {
           await this.sleep(100);
-          await bot.botInstance.telegram.sendMessage(
+          await bot.telegram.sendMessage(
             client.chat_id,
             buttonsMessageTitle || '🔗.',
             {
@@ -498,13 +476,13 @@ export class BotsService {
         }
       }
     } else {
-      await bot.botInstance.telegram.sendMessage(client.chat_id, message, {
+      await bot.telegram.sendMessage(client.chat_id, message, {
         parse_mode: 'HTML',
         ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
       });
     }
 
-    return { success: true, client: client.username, bot: botEntity.id };
+    return { success: true, client: client.username };
   }
 
   // Допоміжні методи
