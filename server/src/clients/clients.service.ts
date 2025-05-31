@@ -106,7 +106,7 @@ export class ClientsService {
       client.name = data.name;
       client.username = data.username;
 
-      return await this.clientRepository.update({ chat_id: chat_id }, client);
+      return await this.clientRepository.save(client);
     }
 
     const newClient = this.clientRepository.create({
