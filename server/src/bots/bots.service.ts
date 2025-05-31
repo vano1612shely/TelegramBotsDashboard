@@ -161,6 +161,8 @@ export class BotsService {
   async start(id: number) {
     const bot = this.bots.find((bot) => bot.id === id);
     if (bot && (bot.botInstance === null || bot.status === 'stopped')) {
+      bot.botInstance = new Telegraf(bot.token);
+      await this.botsHandler.addAllHandlers(bot);
       bot.botInstance.launch();
       bot.status = 'started';
       return true;
