@@ -225,6 +225,7 @@ export class BotsService {
       }
 
       const bots = this.getBotsByCategory(categoryId);
+      console.log(bots);
 
       if (!bots.length) {
         console.log('No bots available');
@@ -516,7 +517,8 @@ export class BotsService {
 
   getBotsByCategory(categoryId: number): BotType[] | undefined {
     return this.bots.filter(
-      (bot) => bot.category_id === categoryId && bot.status === 'started',
+      (bot) =>
+        bot.category_id === Number(categoryId) && bot.status === 'started',
     );
   }
 }
