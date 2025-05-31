@@ -515,6 +515,8 @@ export class BotsService {
   }
 
   getBotsByCategory(categoryId: number): BotType[] | undefined {
-    return this.bots.filter((bot) => bot.category_id === categoryId);
+    return this.bots.filter(
+      (bot) => bot.category_id === categoryId && bot.status === 'started',
+    );
   }
 }
