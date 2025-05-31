@@ -2,14 +2,14 @@
 
 import {
   ColumnDef,
+  ColumnFiltersState,
   flexRender,
   getCoreRowModel,
-  useReactTable,
+  getFilteredRowModel,
+  getPaginationRowModel,
   getSortedRowModel,
   SortingState,
-  getPaginationRowModel,
-  ColumnFiltersState,
-  getFilteredRowModel,
+  useReactTable,
   VisibilityState,
 } from "@tanstack/react-table";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
@@ -63,6 +64,14 @@ export function DataTable<TData, TValue>({
   return (
     <div>
       <div className="flex items-center py-4">
+        <Input
+          placeholder="Filter by chat id..."
+          value={(table.getColumn("chat_id")?.getFilterValue() as string) ?? ""}
+          onChange={(event) =>
+            table.getColumn("chat_id")?.setFilterValue(event.target.value)
+          }
+          className="max-w-sm"
+        />
         <Input
           placeholder="Filter by username..."
           value={
