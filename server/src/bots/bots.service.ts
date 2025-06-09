@@ -22,16 +22,17 @@ export class BotsService {
   bots: BotType[] = [];
 
   constructor(
-    @InjectRepository(BotEntity)
-    private readonly botRepository: Repository<BotEntity>,
-    @InjectRepository(BotCategoryEntity)
-    private readonly botCategoryRepository: Repository<BotCategoryEntity>,
-    @InjectRepository(BotButtonEntity)
-    private readonly botButtonRepository: Repository<BotButtonEntity>,
-    @Inject(forwardRef(() => CategoriesService))
-    private readonly categoriesService: CategoriesService,
-    private readonly botsHandler: BotsHandler,
-    private readonly clientsService: ClientsService,
+      @InjectRepository(BotEntity)
+      private readonly botRepository: Repository<BotEntity>,
+      @InjectRepository(BotCategoryEntity)
+      private readonly botCategoryRepository: Repository<BotCategoryEntity>,
+      @InjectRepository(BotButtonEntity)
+      private readonly botButtonRepository: Repository<BotButtonEntity>,
+      @Inject(forwardRef(() => CategoriesService))
+      private readonly categoriesService: CategoriesService,
+      private readonly botsHandler: BotsHandler,
+      @Inject(forwardRef(() => ClientsService))
+      private readonly clientsService: ClientsService,
   ) {
     this.init().then(() => 'bots init');
   }
@@ -50,7 +51,7 @@ export class BotsService {
       };
       try {
         const res = await (
-          await fetch(`https://api.telegram.org/bot${bot.token}/getMe`)
+            await fetch(`https://api.telegram.org/bot${bot.token}/getMe`)
         ).json();
         if (res.ok) {
           this.botsHandler.addAllHandlers(botItem);
@@ -93,25 +94,25 @@ export class BotsService {
       name: data.name,
       category: category,
       startWithServer:
-        typeof data.startWithServer == 'boolean' ? data.startWithServer : true,
+          typeof data.startWithServer == 'boolean' ? data.startWithServer : true,
     });
     await this.addBot(bot);
     return bot;
   }
 
   async getAll(
-    perPage: number | null,
-    page: number | null,
-    take_all: string | null,
-    select: string[] | null,
-    includeRelations: string | null,
+      perPage: number | null,
+      page: number | null,
+      take_all: string | null,
+      select: string[] | null,
+      includeRelations: string | null,
   ) {
     const include =
-      typeof includeRelations === 'string' ? includeRelations == 'true' : true;
+        typeof includeRelations === 'string' ? includeRelations == 'true' : true;
     const offset =
-      typeof perPage == 'number' && typeof page == 'number'
-        ? (page - 1) * perPage
-        : 0;
+        typeof perPage == 'number' && typeof page == 'number'
+            ? (page - 1) * perPage
+            : 0;
     let selectArr = [];
     if (select) {
       selectArr = [...select];
@@ -187,7 +188,7 @@ export class BotsService {
 
   private getBotByCategory(categoryId: number) {
     const bots = this.bots.find(
-      (bot) => bot.category_id === Number(categoryId),
+        (bot) => bot.category_id === Number(categoryId),
     );
     return bots;
   }
@@ -198,11 +199,11 @@ export class BotsService {
   }
 
   async sendMessage(
-    categoryId: number,
-    message: string,
-    files?: Express.Multer.File[],
-    buttons?: string,
-    buttonsMessageTitle?: string,
+      categoryId: number,
+      message: string,
+      files?: Express.Multer.File[],
+      buttons?: string,
+      buttonsMessageTitle?: string,
   ) {
     const parsedButtons = buttons ? JSON.parse(buttons) : [];
 
@@ -215,11 +216,11 @@ export class BotsService {
 
     try {
       const clients = await this.clientsService.getAll(
-        null,
-        null,
-        'true',
-        null,
-        null,
+          null,
+          null,
+          'true',
+          null,
+          null,
       );
 
       if (!clients.length) {
@@ -228,7 +229,6 @@ export class BotsService {
       }
 
       const bots = this.getBotsByCategory(categoryId);
-      console.log(bots);
 
       if (!bots.length) {
         console.log('No bots available');
@@ -236,15 +236,15 @@ export class BotsService {
       }
 
       console.log(
-        `Starting message sending: ${bots.length} bots, ${clients.length} clients`,
+          `Starting message sending: ${bots.length} bots, ${clients.length} clients`,
       );
       const allTasks = [];
-      for (const { botInstance } of bots) {
+      for (const bot of bots) {
         for (const client of clients) {
           if (!client.chat_id) continue;
 
           allTasks.push({
-            botInstance,
+            bot,
             client,
           });
         }
@@ -252,26 +252,26 @@ export class BotsService {
 
       // Розділяємо завдання на потоки
       const chunks = this.chunkArray(
-        allTasks,
-        Math.ceil(allTasks.length / MAX_CONCURRENT_THREADS),
+          allTasks,
+          Math.ceil(allTasks.length / MAX_CONCURRENT_THREADS),
       );
 
       // Запускаємо потоки паралельно
       const threadPromises = chunks.map((chunk, threadIndex) =>
-        this.processThread(
-          chunk,
-          threadIndex,
-          message,
-          files,
-          parsedButtons,
-          buttonsMessageTitle,
-          {
-            DELAY_BETWEEN_MESSAGES,
-            DELAY_BETWEEN_BOTS,
-            REQUEST_TIMEOUT,
-            MESSAGES_PER_THREAD,
-          },
-        ),
+          this.processThread(
+              chunk,
+              threadIndex,
+              message,
+              files,
+              parsedButtons,
+              buttonsMessageTitle,
+              {
+                DELAY_BETWEEN_MESSAGES,
+                DELAY_BETWEEN_BOTS,
+                REQUEST_TIMEOUT,
+                MESSAGES_PER_THREAD,
+              },
+          ),
       );
 
       const threadResults = await Promise.allSettled(threadPromises);
@@ -288,7 +288,7 @@ export class BotsService {
           totalFailed += stats.failed;
           totalProcessed += stats.processed;
           console.log(
-            `Thread ${index}: ${stats.successful} successful, ${stats.failed} failed`,
+              `Thread ${index}: ${stats.successful} successful, ${stats.failed} failed`,
           );
         } else {
           console.error(`Thread ${index} failed:`, result.reason);
@@ -296,7 +296,7 @@ export class BotsService {
       });
 
       console.log(
-        `Total: ${totalSuccessful} successful, ${totalFailed} failed, ${totalProcessed} processed`,
+          `Total: ${totalSuccessful} successful, ${totalFailed} failed, ${totalProcessed} processed`,
       );
 
       return true;
@@ -308,13 +308,13 @@ export class BotsService {
 
   // Обробка одного потоку
   private async processThread(
-    tasks: any[],
-    threadIndex: number,
-    message: string,
-    files?: Express.Multer.File[],
-    parsedButtons?: any[],
-    buttonsMessageTitle?: string,
-    config?: any,
+      tasks: any[],
+      threadIndex: number,
+      message: string,
+      files?: Express.Multer.File[],
+      parsedButtons?: any[],
+      buttonsMessageTitle?: string,
+      config?: any,
   ) {
     const stats = { successful: 0, failed: 0, processed: 0 };
 
@@ -328,12 +328,12 @@ export class BotsService {
         await this.sleep(delay);
 
         return this.sendWithRetry(
-          task,
-          message,
-          files,
-          parsedButtons,
-          buttonsMessageTitle,
-          config.REQUEST_TIMEOUT,
+            task,
+            message,
+            files,
+            parsedButtons,
+            buttonsMessageTitle,
+            config.REQUEST_TIMEOUT,
         );
       });
 
@@ -358,36 +358,40 @@ export class BotsService {
 
   // Відправка з повторними спробами та обробкою помилок
   private async sendWithRetry(
-    task: any,
-    message: string,
-    files?: Express.Multer.File[],
-    parsedButtons?: any[],
-    buttonsMessageTitle?: string,
-    timeout: number = 8000,
-    maxRetries: number = 1,
+      task: any,
+      message: string,
+      files?: Express.Multer.File[],
+      parsedButtons?: any[],
+      buttonsMessageTitle?: string,
+      timeout: number = 8000,
+      maxRetries: number = 1,
   ): Promise<{ success: boolean; error?: any }> {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         const result = await Promise.race([
           this.sendSingleMessage(
-            task.client,
-            task.botInstance,
-            message,
-            files,
-            parsedButtons,
-            buttonsMessageTitle,
+              task.client,
+              task.bot,
+              message,
+              files,
+              parsedButtons,
+              buttonsMessageTitle,
           ),
           this.createTimeoutPromise(timeout),
         ]);
 
-        return { success: true, ...result };
+        if (result.success) {
+          await this.updateClientBotRelation(task.client, task.bot);
+        }
+
+        return result;
       } catch (error) {
         // Обробляємо різні типи помилок
         if (error.response?.error_code === 429) {
           // Rate limit - чекаємо та повторюємо
           const retryAfter = Math.min(
-            error.response.parameters?.retry_after || 1,
-            10,
+              error.response.parameters?.retry_after || 1,
+              10,
           );
           await this.sleep(retryAfter * 1000);
           continue;
@@ -423,13 +427,36 @@ export class BotsService {
     return { success: false, error: 'Max retries exceeded' };
   }
 
+  // Новий метод для оновлення зв'язків клієнт-бот
+  private async updateClientBotRelation(client: any, bot: any) {
+    try {
+      // Отримуємо повну інформацію про клієнта з бази даних
+      const fullClient = await this.clientsService.getById(client.id);
+
+      if (!fullClient) {
+        console.log(`Client with id ${client.id} not found`);
+        return;
+      }
+
+      const botAlreadyLinked = fullClient.bots?.some((b) => b.id === bot.id);
+
+      if (!botAlreadyLinked) {
+        // Створюємо новий зв'язок через ClientsService
+        await this.clientsService.linkBotToClient(client.id, bot.id);
+        console.log(`Bot ${bot.id} linked to client ${client.id}`);
+      }
+    } catch (error) {
+      console.error(`Error updating client-bot relation:`, error);
+    }
+  }
+
   private async sendSingleMessage(
-    client: any,
-    bot: any,
-    message: string,
-    files?: Express.Multer.File[],
-    parsedButtons?: any[],
-    buttonsMessageTitle?: string,
+      client: any,
+      bot: any,
+      message: string,
+      files?: Express.Multer.File[],
+      parsedButtons?: any[],
+      buttonsMessageTitle?: string,
   ) {
     let replyMarkup;
     if (parsedButtons && parsedButtons.length) {
@@ -445,44 +472,44 @@ export class BotsService {
 
     if (files && files.length > 0) {
       if (files.length === 1) {
-        await bot.telegram.sendPhoto(
-          client.chat_id,
-          { source: Buffer.from(files[0].buffer) },
-          {
-            caption: message,
-            parse_mode: 'HTML',
-            ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-          },
+        await bot.botInstance.telegram.sendPhoto(
+            client.chat_id,
+            { source: Buffer.from(files[0].buffer) },
+            {
+              caption: message,
+              parse_mode: 'HTML',
+              ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+            },
         );
       } else {
         const mediaGroup: InputMediaPhoto[] = files.map((file, index) => ({
           type: 'photo',
           media: { source: Buffer.from(file.buffer) },
           ...(index === files.length - 1
-            ? { caption: message, parse_mode: 'HTML' }
-            : {}),
+              ? { caption: message, parse_mode: 'HTML' }
+              : {}),
         }));
 
-        await bot.telegram.sendMediaGroup(client.chat_id, mediaGroup);
+        await bot.botInstance.telegram.sendMediaGroup(client.chat_id, mediaGroup);
 
         if (replyMarkup) {
           await this.sleep(100);
-          await bot.telegram.sendMessage(
-            client.chat_id,
-            buttonsMessageTitle || '🔗.',
-            {
-              reply_markup: replyMarkup,
-            },
+          await bot.botInstance.telegram.sendMessage(
+              client.chat_id,
+              buttonsMessageTitle || '🔗.',
+              {
+                reply_markup: replyMarkup,
+              },
           );
         }
       }
     } else {
-      await bot.telegram.sendMessage(client.chat_id, message, {
+      await bot.botInstance.telegram.sendMessage(client.chat_id, message, {
         parse_mode: 'HTML',
         ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
       });
     }
-    return { success: true, client: client.username };
+    return { success: true, client: client.username, botId: bot.id };
   }
 
   // Допоміжні методи
@@ -516,8 +543,8 @@ export class BotsService {
 
   getBotsByCategory(categoryId: number): BotType[] | undefined {
     return this.bots.filter(
-      (bot) =>
-        bot.category_id === Number(categoryId) && bot.status === 'started',
+        (bot) =>
+            bot.category_id === Number(categoryId) && bot.status === 'started',
     );
   }
 }
