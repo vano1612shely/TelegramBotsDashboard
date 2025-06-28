@@ -24,7 +24,6 @@ export class BotsHandler {
         bot.category.buttons.map((button) => {
           buttons.push([Markup.button.url(button.title, button.link)]);
         });
-        console.log('test', bot)
         await ctx.sendPhoto(
           { url: bot.category.image_link },
           {
