@@ -16,7 +16,9 @@ export default function SendMessage() {
     const [text, setText] = useState<string>("");
     const [files, setFiles] = useState<FileList | null>(null);
     const [buttons, setButtons] = useState<{ title: string; link: string }[]>([]);
-    const MAX_MESSAGE_LENGTH = 1024;
+
+    const MAX_LENGTH_WITH_FILES = 1024;
+    const MAX_LENGTH_WITHOUT_FILES = 4096;
 
     const param = useParams() as any;
 
@@ -55,14 +57,17 @@ export default function SendMessage() {
 
     const validateForm = (): boolean => {
         const trimmedText = text.trim();
+        const hasFiles = Boolean(files && files.length);
+        const maxMessageLength = hasFiles ? MAX_LENGTH_WITH_FILES : MAX_LENGTH_WITHOUT_FILES;
 
         if (!trimmedText) {
             toast.error("Текст повідомлення не може бути пустим");
             return false;
         }
 
-        if (trimmedText.length > MAX_MESSAGE_LENGTH) {
-            toast.error(`Текст повідомлення не може перевищувати ${MAX_MESSAGE_LENGTH} символів`);
+        const overLimit = text.length - maxMessageLength;
+        if (overLimit > 0) {
+            toast.error(`Текст перевищує максимальну довжину на ${overLimit} символів (максимум ${maxMessageLength})`);
             return false;
         }
 
@@ -106,7 +111,6 @@ export default function SendMessage() {
                 <Textarea
                     placeholder="Повідомлення"
                     value={text}
-                    maxLength={MAX_MESSAGE_LENGTH}
                     onChange={(e) => setText(e.target.value)}
                 />
 
