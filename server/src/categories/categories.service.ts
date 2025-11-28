@@ -83,8 +83,20 @@ export class CategoriesService {
       where: { id: id },
       relations: {
         bots: true,
+        clients: true,
       },
     });
+    if (!category) {
+      return;
+    }
+    // Detach clients first to satisfy FK on client_category
+    if (category.clients?.length) {
+      await this.botCategoryRepository
+        .createQueryBuilder()
+        .relation(BotCategoryEntity, 'clients')
+        .of(category)
+        .remove(category.clients);
+    }
     for (const bot of category.bots) {
       await this.botsService.deleteBot(bot.id);
     }
