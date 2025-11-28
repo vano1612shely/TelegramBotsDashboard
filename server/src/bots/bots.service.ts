@@ -147,6 +147,19 @@ export class BotsService {
     } catch (e) {
       console.log('Bot not running');
     }
+    // Remove junction table relations first to avoid FK errors
+    const botEntity = await this.botRepository.findOne({
+      where: { id },
+      relations: { clients: true },
+    });
+    if (botEntity?.clients?.length) {
+      await this.botRepository
+        .createQueryBuilder()
+        .relation(BotEntity, 'clients')
+        .of(botEntity)
+        .remove(botEntity.clients);
+    }
+    this.bots = this.bots.filter((item) => item.id !== id);
     return await this.botRepository.delete({ id: id });
   }
 
