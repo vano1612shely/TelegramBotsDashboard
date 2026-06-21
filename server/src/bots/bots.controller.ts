@@ -12,7 +12,7 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { BotsService } from './bots.service';
+import { BotsService, SendTarget } from './bots.service';
 import { CreateBotDto } from './dto/create-bot.dto';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 
@@ -84,7 +84,15 @@ export class BotsController {
   @Post('send-message')
   @UseInterceptors(FileFieldsInterceptor([{ name: 'files', maxCount: 10 }]))
   async sendMessage(
-    @Body() body: { categoryId: number; message: string; buttons: string },
+    @Body()
+    body: {
+      categoryId: number;
+      message: string;
+      buttons: string;
+      buttonsMessageTitle?: string;
+      target?: SendTarget;
+      chats?: string;
+    },
     @UploadedFiles() files: { files?: Express.Multer.File[] },
   ) {
     return this.botsService.sendMessage(
@@ -92,6 +100,41 @@ export class BotsController {
       body.message,
       files.files,
       body.buttons,
+      body.buttonsMessageTitle,
+      body.target,
+      body.chats,
     );
+  }
+
+  // ---- Цільові чати / канали категорії ----
+
+  @HttpCode(200)
+  @Post('chats/create')
+  async addChat(@Body() body: { categoryId: number; identifier: string }) {
+    return await this.botsService.addChat(
+      Number(body.categoryId),
+      body.identifier,
+    );
+  }
+
+  @HttpCode(200)
+  @Get('chats/suggestions/:categoryId')
+  async getChatSuggestions(
+    @Param('categoryId') categoryId: number,
+    @Query('query') query?: string,
+  ) {
+    return await this.botsService.getChatSuggestions(Number(categoryId), query);
+  }
+
+  @HttpCode(200)
+  @Get('chats/:categoryId')
+  async getChats(@Param('categoryId') categoryId: number) {
+    return await this.botsService.getChats(Number(categoryId));
+  }
+
+  @HttpCode(200)
+  @Delete('chats/:id')
+  async deleteChat(@Param('id') id: number) {
+    return await this.botsService.deleteChat(Number(id));
   }
 }

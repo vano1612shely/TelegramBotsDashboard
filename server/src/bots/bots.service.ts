@@ -10,12 +10,16 @@ import { Repository } from 'typeorm';
 import { BotEntity } from '../entities/bots/Bot';
 import { BotCategoryEntity } from '../entities/bots/BotCategory';
 import { BotButtonEntity } from '../entities/bots/BotButton';
+import { BotChatEntity } from '../entities/bots/BotChat';
+import { DiscoveredChatEntity } from '../entities/bots/DiscoveredChat';
 import { BotType } from '../types/BotTypes';
 import { CreateBotDto } from './dto/create-bot.dto';
 import { CategoriesService } from '../categories/categories.service';
 import { BotsHandler } from './bot.handler';
 import { ClientsService } from '../clients/clients.service';
-import { InputMediaPhoto } from 'telegraf/types';
+import { InputMediaPhoto, InputMediaVideo } from 'telegraf/types';
+
+export type SendTarget = 'clients' | 'chats' | 'all';
 
 @Injectable()
 export class BotsService {
@@ -28,6 +32,10 @@ export class BotsService {
     private readonly botCategoryRepository: Repository<BotCategoryEntity>,
     @InjectRepository(BotButtonEntity)
     private readonly botButtonRepository: Repository<BotButtonEntity>,
+    @InjectRepository(BotChatEntity)
+    private readonly botChatRepository: Repository<BotChatEntity>,
+    @InjectRepository(DiscoveredChatEntity)
+    private readonly discoveredChatRepository: Repository<DiscoveredChatEntity>,
     @Inject(forwardRef(() => CategoriesService))
     private readonly categoriesService: CategoriesService,
     private readonly botsHandler: BotsHandler,
@@ -54,6 +62,7 @@ export class BotsService {
           await fetch(`https://api.telegram.org/bot${bot.token}/getMe`)
         ).json();
         if (res.ok) {
+          botItem.telegramId = res.result?.id;
           this.botsHandler.addAllHandlers(botItem);
           botItem.botInstance.launch();
           botItem.status = 'started';
@@ -217,9 +226,46 @@ export class BotsService {
     files?: Express.Multer.File[],
     buttons?: string,
     buttonsMessageTitle?: string,
+    target: SendTarget = 'clients',
+    chats?: string,
   ) {
     const parsedButtons = buttons ? JSON.parse(buttons) : [];
+    const providedIdentifiers = this.parseChatIdentifiers(chats);
 
+    // Розсилка в групові чати / канали (по одному повідомленню на чат,
+    // через бота категорії, який є адміном цього чату/каналу).
+    if (target === 'chats' || target === 'all') {
+      await this.sendMessageToChats(
+        categoryId,
+        message,
+        files,
+        parsedButtons,
+        buttonsMessageTitle,
+        providedIdentifiers,
+      );
+    }
+
+    // Розсилка особистих повідомлень клієнтам (кожен бот -> своїм клієнтам).
+    if (target === 'clients' || target === 'all') {
+      await this.sendToClients(
+        categoryId,
+        message,
+        files,
+        parsedButtons,
+        buttonsMessageTitle,
+      );
+    }
+
+    return true;
+  }
+
+  private async sendToClients(
+    categoryId: number,
+    message: string,
+    files: Express.Multer.File[] | undefined,
+    parsedButtons: any[],
+    buttonsMessageTitle: string | undefined,
+  ) {
     // Налаштування для rate limiting та паралелізму
     const DELAY_BETWEEN_MESSAGES = 100; // мс між повідомленнями
     const DELAY_BETWEEN_BOTS = 50; // мс між ботами
@@ -489,6 +535,76 @@ export class BotsService {
     parsedButtons?: any[],
     buttonsMessageTitle?: string,
   ) {
+    await this.sendContent(
+      bot,
+      client.chat_id,
+      message,
+      files,
+      parsedButtons,
+      buttonsMessageTitle,
+    );
+    return { success: true, client: client.username, botId: bot.id };
+  }
+
+  private isVideo(file: Express.Multer.File): boolean {
+    return Boolean(file?.mimetype && file.mimetype.startsWith('video'));
+  }
+
+  // Передаємо filename, щоб Telegram коректно визначив тип файлу.
+  // Без імені (а отже й розширення) Telegram може не розпізнати формат і
+  // повернути IMAGE_PROCESS_FAILED.
+  private toInputFile(file: Express.Multer.File) {
+    return {
+      source: Buffer.from(file.buffer),
+      filename: file.originalname || 'file',
+    };
+  }
+
+  // Помилки етапу обробки зображення (завеликий файл, неприйнятні розміри,
+  // формат, який Telegram не може обробити як фото).
+  private isImageProcessError(e: any): boolean {
+    const desc =
+      e?.response?.description || e?.description || e?.message || '';
+    return /IMAGE_PROCESS_FAILED|PHOTO_INVALID_DIMENSIONS|PHOTO_SAVE_FILE_INVALID|PHOTO_EXT_INVALID/i.test(
+      desc,
+    );
+  }
+
+  // Відправка одного файлу. Відео -> sendVideo, фото -> sendPhoto з
+  // фолбеком на sendDocument, якщо Telegram не зміг обробити зображення.
+  private async sendOneFile(
+    telegram: any,
+    chatId: string | number,
+    file: Express.Multer.File,
+    extra: any,
+  ) {
+    const input = this.toInputFile(file);
+    if (this.isVideo(file)) {
+      await telegram.sendVideo(chatId, input, extra);
+      return;
+    }
+    try {
+      await telegram.sendPhoto(chatId, input, extra);
+    } catch (e) {
+      if (this.isImageProcessError(e)) {
+        // Завеликий/неформатний файл — надсилаємо як документ (без обробки).
+        await telegram.sendDocument(chatId, this.toInputFile(file), extra);
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  // Універсальна відправка контенту (текст / фото / відео / медіа-група)
+  // у будь-який chat_id (клієнт, груповий чат або канал).
+  private async sendContent(
+    bot: BotType,
+    chatId: string | number,
+    message: string,
+    files?: Express.Multer.File[],
+    parsedButtons?: any[],
+    buttonsMessageTitle?: string,
+  ) {
     let replyMarkup;
     if (parsedButtons && parsedButtons.length) {
       replyMarkup = {
@@ -501,49 +617,58 @@ export class BotsService {
       };
     }
 
+    const telegram = bot.botInstance.telegram;
+
     if (files && files.length > 0) {
       if (files.length === 1) {
-        await bot.botInstance.telegram.sendPhoto(
-          client.chat_id,
-          { source: Buffer.from(files[0].buffer) },
-          {
-            caption: message,
-            parse_mode: 'HTML',
-            ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-          },
-        );
+        const extra = {
+          caption: message,
+          parse_mode: 'HTML' as const,
+          ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+        };
+        await this.sendOneFile(telegram, chatId, files[0], extra);
       } else {
-        const mediaGroup: InputMediaPhoto[] = files.map((file, index) => ({
-          type: 'photo',
-          media: { source: Buffer.from(file.buffer) },
+        // Медіа-група може містити одночасно фото та відео.
+        const mediaGroup = files.map((file, index) => ({
+          type: this.isVideo(file) ? 'video' : 'photo',
+          media: this.toInputFile(file),
           ...(index === files.length - 1
             ? { caption: message, parse_mode: 'HTML' }
             : {}),
-        }));
+        })) as (InputMediaPhoto | InputMediaVideo)[];
 
-        await bot.botInstance.telegram.sendMediaGroup(
-          client.chat_id,
-          mediaGroup,
-        );
+        try {
+          await telegram.sendMediaGroup(chatId, mediaGroup);
+        } catch (e) {
+          if (this.isImageProcessError(e)) {
+            // Фолбек: надсилаємо файли по одному (перший — з підписом),
+            // щоб «проблемне» зображення пішло як документ.
+            for (let i = 0; i < files.length; i++) {
+              const fileExtra =
+                i === 0
+                  ? { caption: message, parse_mode: 'HTML' as const }
+                  : {};
+              await this.sendOneFile(telegram, chatId, files[i], fileExtra);
+              await this.sleep(100);
+            }
+          } else {
+            throw e;
+          }
+        }
 
         if (replyMarkup) {
           await this.sleep(100);
-          await bot.botInstance.telegram.sendMessage(
-            client.chat_id,
-            buttonsMessageTitle || '🔗.',
-            {
-              reply_markup: replyMarkup,
-            },
-          );
+          await telegram.sendMessage(chatId, buttonsMessageTitle || '🔗.', {
+            reply_markup: replyMarkup,
+          });
         }
       }
     } else {
-      await bot.botInstance.telegram.sendMessage(client.chat_id, message, {
+      await telegram.sendMessage(chatId, message, {
         parse_mode: 'HTML',
         ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
       });
     }
-    return { success: true, client: client.username, botId: bot.id };
   }
 
   // Допоміжні методи
@@ -580,5 +705,323 @@ export class BotsService {
       (bot) =>
         bot.category_id === Number(categoryId) && bot.status === 'started',
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Розсилка в чати / канали
+  // ---------------------------------------------------------------------------
+
+  // Приводимо ідентифікатор до канонічного вигляду:
+  // - числовий id (групи/канали) залишаємо як є;
+  // - публічний канал/групу за username приводимо до @username.
+  private normalizeIdentifier(raw: string): string {
+    const id = (raw || '').trim();
+    if (!id) return '';
+    if (/^-?\d+$/.test(id)) return id;
+    return id.startsWith('@') ? id : `@${id}`;
+  }
+
+  // Парсимо список ідентифікаторів: підтримуємо JSON-масив або текст,
+  // розділений комами / новими рядками / пробілами.
+  private parseChatIdentifiers(raw?: string): string[] {
+    if (!raw) return [];
+    let list: string[] = [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        list = parsed.map((item) => String(item));
+      } else {
+        list = String(raw).split(/[\s,]+/);
+      }
+    } catch {
+      list = String(raw).split(/[\s,]+/);
+    }
+    return list
+      .map((item) => this.normalizeIdentifier(item))
+      .filter((item) => item.length > 0);
+  }
+
+  // Telegram id самого бота (з кешуванням).
+  private async ensureBotTelegramId(bot: BotType): Promise<number | undefined> {
+    if (bot.telegramId) return bot.telegramId;
+    try {
+      const me = await bot.botInstance.telegram.getMe();
+      bot.telegramId = me.id;
+    } catch (e) {
+      console.log(`Cannot resolve telegram id for bot ${bot.name}`);
+    }
+    return bot.telegramId;
+  }
+
+  // Об'єднуємо збережені для категорії чати з переданими ad-hoc ідентифікаторами.
+  private async resolveTargetIdentifiers(
+    categoryId: number,
+    provided: string[],
+  ): Promise<string[]> {
+    const saved = await this.botChatRepository.find({
+      where: { category_id: Number(categoryId) },
+    });
+    const savedIds = saved.map((chat) => chat.identifier);
+    return Array.from(new Set([...savedIds, ...provided]));
+  }
+
+  // Розсилка одного повідомлення на кожен чат/канал.
+  // Для кожного цільового чату перебираємо ботів категорії і відправляємо
+  // через першого, який має право публікувати (адмін). Повторів немає.
+  private async sendMessageToChats(
+    categoryId: number,
+    message: string,
+    files: Express.Multer.File[] | undefined,
+    parsedButtons: any[],
+    buttonsMessageTitle: string | undefined,
+    providedIdentifiers: string[],
+  ) {
+    const identifiers = await this.resolveTargetIdentifiers(
+      categoryId,
+      providedIdentifiers,
+    );
+
+    if (!identifiers.length) {
+      console.log('No chat/channel targets to send to');
+      return { successful: 0, failed: 0 };
+    }
+
+    const bots = this.getBotsByCategory(categoryId);
+    if (!bots || !bots.length) {
+      console.log('No started bots for category');
+      return { successful: 0, failed: identifiers.length };
+    }
+
+    let successful = 0;
+    let failed = 0;
+
+    for (const identifier of identifiers) {
+      const bot = await this.resolveAdminBot(identifier, bots);
+      const candidates = bot ? [bot, ...bots.filter((b) => b !== bot)] : bots;
+
+      let sent = false;
+      for (const candidate of candidates) {
+        try {
+          await this.sendContent(
+            candidate,
+            identifier,
+            message,
+            files,
+            parsedButtons,
+            buttonsMessageTitle,
+          );
+          sent = true;
+          break;
+        } catch (e) {
+          // Бот не є адміном / не має прав публікації — пробуємо наступного.
+          if (e?.response?.error_code === 429) {
+            const retryAfter = Math.min(
+              e.response.parameters?.retry_after || 1,
+              10,
+            );
+            await this.sleep(retryAfter * 1000);
+          }
+        }
+      }
+
+      if (sent) {
+        successful++;
+      } else {
+        failed++;
+        console.log(`No admin bot could post to ${identifier}`);
+      }
+
+      await this.sleep(150);
+    }
+
+    console.log(`Chats broadcast: ${successful} successful, ${failed} failed`);
+    return { successful, failed };
+  }
+
+  // Знаходимо бота категорії, який є адміном (creator/administrator) у чаті.
+  private async resolveAdminBot(
+    identifier: string,
+    bots: BotType[],
+  ): Promise<BotType | undefined> {
+    for (const bot of bots) {
+      try {
+        const telegramId = await this.ensureBotTelegramId(bot);
+        if (!telegramId) continue;
+        const member = await bot.botInstance.telegram.getChatMember(
+          identifier,
+          telegramId,
+        );
+        if (member.status === 'creator') return bot;
+        if (member.status === 'administrator') {
+          // У каналах публікація вимагає can_post_messages; у групах це поле
+          // відсутнє, тож адміна вважаємо придатним.
+          const canPost = (member as any).can_post_messages;
+          if (canPost === undefined || canPost) return bot;
+        }
+      } catch {
+        // Бот не доданий у цей чат / немає доступу.
+      }
+    }
+    return undefined;
+  }
+
+  // ---------- CRUD цільових чатів/каналів ----------
+
+  async addChat(categoryId: number, identifier: string) {
+    const normalized = this.normalizeIdentifier(identifier);
+    if (!normalized) {
+      throw new BadRequestException('Empty chat identifier');
+    }
+
+    const existing = await this.botChatRepository.findOne({
+      where: { category_id: Number(categoryId), identifier: normalized },
+    });
+    if (existing) return existing;
+
+    let title: string | null = null;
+    let type = normalized.startsWith('@') ? 'channel' : 'group';
+
+    const bots = this.getBotsByCategory(categoryId);
+    if (bots && bots.length) {
+      for (const bot of bots) {
+        try {
+          const chat: any = await bot.botInstance.telegram.getChat(normalized);
+          title = chat.title || chat.username || null;
+          type = chat.type === 'channel' ? 'channel' : 'group';
+          break;
+        } catch {
+          // Спробуємо наступного бота.
+        }
+      }
+    }
+
+    return await this.botChatRepository.save({
+      category_id: Number(categoryId),
+      identifier: normalized,
+      title,
+      type,
+    });
+  }
+
+  // Список цільових чатів категорії + перелік ботів-адмінів для кожного.
+  async getChats(categoryId: number) {
+    const chats = await this.botChatRepository.find({
+      where: { category_id: Number(categoryId) },
+      order: { created_at: 'ASC' },
+    });
+    const bots = this.getBotsByCategory(categoryId) || [];
+
+    const result = [];
+    for (const chat of chats) {
+      const adminBots: string[] = [];
+      for (const bot of bots) {
+        try {
+          const telegramId = await this.ensureBotTelegramId(bot);
+          if (!telegramId) continue;
+          const member = await bot.botInstance.telegram.getChatMember(
+            chat.identifier,
+            telegramId,
+          );
+          if (
+            member.status === 'administrator' ||
+            member.status === 'creator'
+          ) {
+            adminBots.push(bot.name);
+          }
+        } catch {
+          // Бот не у цьому чаті.
+        }
+      }
+      result.push({ ...chat, adminBots });
+    }
+    return result;
+  }
+
+  async deleteChat(id: number) {
+    return await this.botChatRepository.delete({ id: Number(id) });
+  }
+
+  // Підказки для автокомпліту: чати/канали, які боти категорії «побачили»
+  // через оновлення Telegram і де бот є учасником/адміном.
+  // Дедуплікуємо за chat_id (кілька ботів категорії можуть бути в одному чаті).
+  async getChatSuggestions(categoryId: number, query?: string) {
+    const rows = await this.discoveredChatRepository.find({
+      where: { category_id: Number(categoryId) },
+      order: { updated_at: 'DESC' },
+    });
+
+    // Бот має бути активним учасником, щоб міг публікувати.
+    const active = rows.filter((row) =>
+      ['creator', 'administrator', 'member'].includes(row.status),
+    );
+
+    const rank = (status: string) =>
+      status === 'creator' ? 3 : status === 'administrator' ? 2 : 1;
+
+    const byChat = new Map<
+      string,
+      {
+        identifier: string;
+        chat_id: string;
+        username: string | null;
+        title: string | null;
+        type: string;
+        bestStatus: string;
+        bots: string[];
+      }
+    >();
+
+    for (const row of active) {
+      const bot = this.bots.find((b) => b.id === row.bot_id);
+      const botName = bot?.name || `#${row.bot_id}`;
+      const existing = byChat.get(row.chat_id);
+      if (existing) {
+        if (!existing.bots.includes(botName)) existing.bots.push(botName);
+        if (rank(row.status) > rank(existing.bestStatus)) {
+          existing.bestStatus = row.status;
+        }
+        if (!existing.title && row.title) existing.title = row.title;
+        if (!existing.username && row.username) existing.username = row.username;
+      } else {
+        byChat.set(row.chat_id, {
+          // Для каналів зручніше зберігати @username, для груп — числовий id.
+          identifier:
+            row.type === 'channel' && row.username
+              ? `@${row.username}`
+              : row.chat_id,
+          chat_id: row.chat_id,
+          username: row.username || null,
+          title: row.title || null,
+          type: row.type,
+          bestStatus: row.status,
+          bots: [botName],
+        });
+      }
+    }
+
+    let result = Array.from(byChat.values());
+
+    const q = (query || '').trim().toLowerCase();
+    if (q) {
+      const needle = q.startsWith('@') ? q.slice(1) : q;
+      result = result.filter(
+        (item) =>
+          item.title?.toLowerCase().includes(needle) ||
+          item.username?.toLowerCase().includes(needle) ||
+          item.chat_id.includes(needle),
+      );
+    }
+
+    // Не пропонуємо вже додані до розсилки чати.
+    const saved = await this.botChatRepository.find({
+      where: { category_id: Number(categoryId) },
+    });
+    const savedSet = new Set(saved.map((chat) => chat.identifier));
+    result = result.filter(
+      (item) =>
+        !savedSet.has(item.identifier) && !savedSet.has(item.chat_id),
+    );
+
+    return result;
   }
 }

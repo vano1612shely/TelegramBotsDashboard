@@ -4,6 +4,8 @@ import { Telegraf } from 'telegraf';
 export type BotType = BotEntity & {
   botInstance: Telegraf;
   status: 'started' | 'stopped';
+  // Telegram id of the bot itself (from getMe), cached lazily.
+  telegramId?: number;
 };
 
 export type CreateBot = {

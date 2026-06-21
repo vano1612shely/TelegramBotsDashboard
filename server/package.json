@@ -39,6 +39,7 @@
     "pg": "^8.11.5",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
+    "server": "file:",
     "telegraf": "^4.16.3",
     "typeorm": "^0.3.20"
   },

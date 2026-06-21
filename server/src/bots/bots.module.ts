@@ -5,6 +5,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BotEntity } from '../entities/bots/Bot';
 import { BotCategoryEntity } from '../entities/bots/BotCategory';
 import { BotButtonEntity } from '../entities/bots/BotButton';
+import { BotChatEntity } from '../entities/bots/BotChat';
+import { DiscoveredChatEntity } from '../entities/bots/DiscoveredChat';
 import { CategoriesModule } from '../categories/categories.module';
 import { BotsHandler } from './bot.handler';
 import { ClientsModule } from '../clients/clients.module';
@@ -13,7 +15,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([BotEntity, BotCategoryEntity, BotButtonEntity]),
+    TypeOrmModule.forFeature([
+      BotEntity,
+      BotCategoryEntity,
+      BotButtonEntity,
+      BotChatEntity,
+      DiscoveredChatEntity,
+    ]),
     forwardRef(() => CategoriesModule),
     forwardRef(() => ClientsModule),
     JwtModule.registerAsync({

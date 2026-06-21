@@ -1,5 +1,5 @@
 import {api} from "@/services/api";
-import {BotKeys, BotType} from "@/types/bot.type";
+import {BotChat, BotKeys, BotType, ChatSuggestion, SendTarget} from "@/types/bot.type";
 import {AddBotValues} from "@/app/i/dashboard/bots/add-bot/formSchema";
 import {GetDataWithTypedSelect} from "@/types/types";
 
@@ -54,12 +54,27 @@ class BotService {
         return res.data;
     }
 
-    async sendMessage(categoryId: number, message: string, files?: FileList, buttons?: any[]) {
+    async sendMessage(
+        categoryId: number,
+        message: string,
+        files?: FileList | null,
+        buttons?: any[],
+        target: SendTarget = "clients",
+        chats?: string[],
+        buttonsMessageTitle?: string,
+    ) {
         const formData = new FormData();
         formData.append("categoryId", categoryId.toString()); // ⚡ Перетворюємо в рядок
         formData.append("message", message);
+        formData.append("target", target);
         if (buttons && buttons.length > 0) {
             formData.append("buttons", JSON.stringify(buttons)); // ✅ Сюди йде масив
+        }
+        if (chats && chats.length > 0) {
+            formData.append("chats", JSON.stringify(chats));
+        }
+        if (buttonsMessageTitle) {
+            formData.append("buttonsMessageTitle", buttonsMessageTitle);
         }
         if (files)
             Array.from(files).forEach((file) => {
@@ -71,6 +86,28 @@ class BotService {
             },
         });
 
+        return res.data;
+    }
+
+    async getChats(categoryId: number): Promise<BotChat[]> {
+        const res = await api.get(`/bots/chats/${categoryId}`);
+        return res.data;
+    }
+
+    async addChat(categoryId: number, identifier: string): Promise<BotChat> {
+        const res = await api.post(`/bots/chats/create`, {categoryId, identifier});
+        return res.data;
+    }
+
+    async deleteChat(id: number): Promise<boolean> {
+        const res = await api.delete(`/bots/chats/${id}`);
+        return res.data;
+    }
+
+    async getChatSuggestions(categoryId: number, query?: string): Promise<ChatSuggestion[]> {
+        const res = await api.get(`/bots/chats/suggestions/${categoryId}`, {
+            params: {query: query || undefined},
+        });
         return res.data;
     }
 }
