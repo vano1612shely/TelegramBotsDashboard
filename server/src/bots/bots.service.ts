@@ -881,16 +881,35 @@ export class BotsService {
     let title: string | null = null;
     let type = normalized.startsWith('@') ? 'channel' : 'group';
 
+    // Перебираємо всіх ботів категорії: для кожного, хто має доступ до чату,
+    // фіксуємо його в пулі «знайдених» чатів (для автокомпліту) разом із
+    // реальним статусом членства. Це гарантує, що після видалення зі списку
+    // розсилки чат знову з'явиться в підказках.
     const bots = this.getBotsByCategory(categoryId);
     if (bots && bots.length) {
       for (const bot of bots) {
         try {
           const chat: any = await bot.botInstance.telegram.getChat(normalized);
-          title = chat.title || chat.username || null;
+          if (title === null) title = chat.title || chat.username || null;
           type = chat.type === 'channel' ? 'channel' : 'group';
-          break;
+
+          let status = 'member';
+          try {
+            const telegramId = await this.ensureBotTelegramId(bot);
+            if (telegramId) {
+              const member = await bot.botInstance.telegram.getChatMember(
+                normalized,
+                telegramId,
+              );
+              status = member.status;
+            }
+          } catch {
+            // Не вдалось визначити статус — лишаємо 'member'.
+          }
+
+          await this.recordDiscoveredChat(bot, chat, status);
         } catch {
-          // Спробуємо наступного бота.
+          // Цей бот не має доступу до чату — пробуємо наступного.
         }
       }
     }
@@ -901,6 +920,46 @@ export class BotsService {
       title,
       type,
     });
+  }
+
+  // Зберігаємо/оновлюємо запис у пулі «знайдених» чатів (для автокомпліту).
+  // Дзеркалить логіку в BotsHandler, але викликається з дій користувача
+  // (додавання чату), коли бот вже точно має доступ.
+  private async recordDiscoveredChat(
+    bot: BotType,
+    chat: { id: number; type: string; title?: string; username?: string },
+    status: string,
+  ) {
+    if (
+      !chat ||
+      (chat.type !== 'group' &&
+        chat.type !== 'supergroup' &&
+        chat.type !== 'channel')
+    ) {
+      return;
+    }
+    try {
+      const chatId = String(chat.id);
+      const existing = await this.discoveredChatRepository.findOne({
+        where: { bot_id: bot.id, chat_id: chatId },
+      });
+      const payload = {
+        bot_id: bot.id,
+        category_id: bot.category_id,
+        chat_id: chatId,
+        title: chat.title ?? existing?.title ?? null,
+        username: chat.username ?? existing?.username ?? null,
+        type: chat.type,
+        status,
+      };
+      if (existing) {
+        await this.discoveredChatRepository.update({ id: existing.id }, payload);
+      } else {
+        await this.discoveredChatRepository.save(payload);
+      }
+    } catch (e) {
+      console.log('recordDiscoveredChat error', e?.message || e);
+    }
   }
 
   // Список цільових чатів категорії + перелік ботів-адмінів для кожного.

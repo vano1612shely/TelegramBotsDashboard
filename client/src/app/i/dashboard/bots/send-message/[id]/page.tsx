@@ -11,14 +11,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandItem,
-    CommandList,
-} from "@/components/ui/command";
 import Link from "next/link";
 import {ChevronLeft, Loader2, Trash2} from "lucide-react";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
@@ -226,73 +218,67 @@ export default function SendMessage() {
                             відправить той бот, який має право публікації.
                         </p>
 
-                        <div className="grid grid-cols-[1fr_auto] gap-3">
-                            <Popover open={suggestOpen} onOpenChange={setSuggestOpen}>
-                                <PopoverTrigger asChild>
-                                    <Input
-                                        placeholder="@channel або -1001234567890"
-                                        value={newChat}
-                                        onChange={(e) => {
-                                            setNewChat(e.target.value);
-                                            setSuggestOpen(true);
-                                        }}
-                                        onFocus={() => setSuggestOpen(true)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                                e.preventDefault();
-                                                handleAddChat();
-                                            }
-                                        }}
-                                    />
-                                </PopoverTrigger>
-                                <PopoverContent
-                                    align="start"
-                                    onOpenAutoFocus={(e) => e.preventDefault()}
-                                    className="p-0 w-[var(--radix-popover-trigger-width)]"
-                                >
-                                    <Command shouldFilter={false}>
-                                        <CommandList>
+                        <div className="relative">
+                            <div className="grid grid-cols-[1fr_auto] gap-3">
+                                <Input
+                                    placeholder="@channel або -1001234567890"
+                                    value={newChat}
+                                    onChange={(e) => {
+                                        setNewChat(e.target.value);
+                                        setSuggestOpen(true);
+                                    }}
+                                    onFocus={() => setSuggestOpen(true)}
+                                    onBlur={() => setTimeout(() => setSuggestOpen(false), 150)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            handleAddChat();
+                                        }
+                                        if (e.key === "Escape") {
+                                            setSuggestOpen(false);
+                                        }
+                                    }}
+                                />
+                                <Button type="button" onClick={handleAddChat} disabled={addingChat}>
+                                    Додати
+                                    {addingChat && <Loader2 className="animate-spin ml-2 w-4 h-4"/>}
+                                </Button>
+                            </div>
+
+                            {suggestOpen &&
+                                (suggestionsLoading ||
+                                    (suggestions && suggestions.length > 0)) && (
+                                    <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md">
+                                        <div className="max-h-[260px] overflow-y-auto">
                                             {suggestionsLoading ? (
-                                                <div className="py-4 text-center text-sm text-muted-foreground">
+                                                <div className="py-3 text-center text-sm text-muted-foreground">
                                                     Пошук...
                                                 </div>
                                             ) : (
-                                                <>
-                                                    <CommandEmpty>
-                                                        Нічого не знайдено. Можна ввести id або @username вручну.
-                                                    </CommandEmpty>
-                                                    {suggestions && suggestions.length > 0 && (
-                                                        <CommandGroup heading="Де присутній бот">
-                                                            {suggestions.map((s) => (
-                                                                <CommandItem
-                                                                    key={s.chat_id}
-                                                                    value={s.identifier}
-                                                                    onSelect={() => addChat(s.identifier)}
-                                                                >
-                                                                    <div className="flex flex-col">
-                                                                        <span className="text-sm font-medium">
-                                                                            {s.title || s.identifier}
-                                                                        </span>
-                                                                        <span className="text-xs text-muted-foreground">
-                                                                            {s.identifier} ·{" "}
-                                                                            {s.type === "channel" ? "канал" : "група"} ·{" "}
-                                                                            {statusLabel(s.bestStatus)}
-                                                                        </span>
-                                                                    </div>
-                                                                </CommandItem>
-                                                            ))}
-                                                        </CommandGroup>
-                                                    )}
-                                                </>
+                                                suggestions?.map((s) => (
+                                                    <button
+                                                        type="button"
+                                                        key={s.chat_id}
+                                                        // onMouseDown зберігає фокус в інпуті до кліку,
+                                                        // інакше onBlur ховає список раніше за onClick.
+                                                        onMouseDown={(e) => e.preventDefault()}
+                                                        onClick={() => addChat(s.identifier)}
+                                                        className="flex w-full flex-col items-start px-3 py-2 text-left hover:bg-accent"
+                                                    >
+                                                        <span className="text-sm font-medium">
+                                                            {s.title || s.identifier}
+                                                        </span>
+                                                        <span className="text-xs text-muted-foreground">
+                                                            {s.identifier} ·{" "}
+                                                            {s.type === "channel" ? "канал" : "група"} ·{" "}
+                                                            {statusLabel(s.bestStatus)}
+                                                        </span>
+                                                    </button>
+                                                ))
                                             )}
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
-                            <Button type="button" onClick={handleAddChat} disabled={addingChat}>
-                                Додати
-                                {addingChat && <Loader2 className="animate-spin ml-2 w-4 h-4"/>}
-                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                         </div>
 
                         {chatsLoading ? (
