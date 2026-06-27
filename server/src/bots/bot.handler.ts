@@ -6,6 +6,8 @@ import { CreateClientDto } from '../clients/dto/create-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DiscoveredChatEntity } from '../entities/bots/DiscoveredChat';
 import { Repository } from 'typeorm';
+import { join } from 'path';
+import { createReadStream, existsSync } from 'fs';
 
 @Injectable()
 export class BotsHandler {
@@ -62,17 +64,46 @@ export class BotsHandler {
       ...Markup.inlineKeyboard(buttons),
     };
 
-    // Перший раз вантажимо з URL і запам'ятовуємо file_id; далі шлемо by file_id
-    // (миттєво, без повторного завантаження картинки Telegram-ом).
-    const photo = bot.welcomePhotoFileId
-      ? bot.welcomePhotoFileId
-      : { url: bot.category.image_link };
+    // Пріоритет джерел картинки:
+    // 1) кешований file_id (миттєво, без I/O);
+    // 2) локальний файл зі static (Telegraf інакше САМ завантажує image_link
+    //    по мережі — а він може бути недоступний: ETIMEDOUT);
+    // 3) як крайній випадок — URL.
+    let photo: any;
+    if (bot.welcomePhotoFileId) {
+      photo = bot.welcomePhotoFileId;
+    } else {
+      const localPath = this.resolveLocalImage(bot.category?.image_link);
+      photo = localPath
+        ? { source: createReadStream(localPath) }
+        : { url: bot.category.image_link };
+    }
 
     const sent: any = await ctx.sendPhoto(photo, extra);
 
     if (!bot.welcomePhotoFileId && sent?.photo?.length) {
       bot.welcomePhotoFileId = sent.photo[sent.photo.length - 1].file_id;
     }
+  }
+
+  // Дістаємо локальний шлях до файлу в static за його image_link (беремо лише
+  // ім'я файлу з URL). Повертаємо null, якщо файлу немає.
+  private resolveLocalImage(imageLink?: string): string | null {
+    if (!imageLink) return null;
+    try {
+      const filename = imageLink.split('/').pop()?.split('?')[0];
+      if (!filename) return null;
+      const candidates = [
+        join(process.cwd(), 'static', filename),
+        join(__dirname, '..', '..', 'static', filename),
+      ];
+      for (const candidate of candidates) {
+        if (existsSync(candidate)) return candidate;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
   }
 
   // Зберігаємо/оновлюємо чат, який бот «побачив». Telegram Bot API не дозволяє
