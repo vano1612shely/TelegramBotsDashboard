@@ -5,6 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Telegraf } from 'telegraf';
+import { Agent } from 'https';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BotEntity } from '../entities/bots/Bot';
@@ -24,6 +25,23 @@ export type SendTarget = 'clients' | 'chats' | 'all';
 @Injectable()
 export class BotsService {
   bots: BotType[] = [];
+
+  // Спільний keep-alive агент для всіх ботів: повторно використовує TCP/TLS
+  // з'єднання до api.telegram.org замість нового хендшейку (і DNS) на кожен
+  // запит. При 100+ ботах це суттєво зменшує затримки вихідних викликів.
+  private static readonly telegramAgent = new Agent({
+    keepAlive: true,
+    keepAliveMsecs: 10000,
+    maxSockets: 200,
+    maxFreeSockets: 50,
+  });
+
+  private createBotInstance(token: string): Telegraf {
+    return new Telegraf(token, {
+      handlerTimeout: 30000,
+      telegram: { agent: BotsService.telegramAgent },
+    });
+  }
 
   constructor(
     @InjectRepository(BotEntity)
@@ -53,7 +71,7 @@ export class BotsService {
     });
     for (const bot of data) {
       const botItem: BotType = {
-        botInstance: new Telegraf(bot.token, { handlerTimeout: 30000 }),
+        botInstance: this.createBotInstance(bot.token),
         ...bot,
         status: 'stopped',
       };
@@ -77,7 +95,7 @@ export class BotsService {
 
   async addBot(bot: BotEntity) {
     const botItem: BotType = {
-      botInstance: new Telegraf(bot.token, { handlerTimeout: 30000 }),
+      botInstance: this.createBotInstance(bot.token),
       ...bot,
       status: 'stopped',
     };
@@ -185,7 +203,7 @@ export class BotsService {
   async start(id: number) {
     const bot = this.bots.find((bot) => bot.id === id);
     if (bot && (bot.botInstance === null || bot.status === 'stopped')) {
-      bot.botInstance = new Telegraf(bot.token, { handlerTimeout: 30000 });
+      bot.botInstance = this.createBotInstance(bot.token);
       await this.botsHandler.addAllHandlers(bot);
       bot.botInstance.launch().catch((e) => console.error(`launch error`, e?.message || e));
       bot.status = 'started';
@@ -199,7 +217,7 @@ export class BotsService {
     if (bot) {
       if (bot.botInstance !== null && bot.status == 'started')
         bot.botInstance.stop();
-      bot.botInstance = new Telegraf(bot.token, { handlerTimeout: 30000 });
+      bot.botInstance = this.createBotInstance(bot.token);
       await this.botsHandler.addAllHandlers(bot);
       bot.botInstance.launch().catch((e) => console.error(`launch error`, e?.message || e));
       bot.status = 'started';
