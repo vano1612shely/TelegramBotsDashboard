@@ -53,7 +53,7 @@ export class BotsService {
     });
     for (const bot of data) {
       const botItem: BotType = {
-        botInstance: new Telegraf(bot.token),
+        botInstance: new Telegraf(bot.token, { handlerTimeout: 30000 }),
         ...bot,
         status: 'stopped',
       };
@@ -64,7 +64,7 @@ export class BotsService {
         if (res.ok) {
           botItem.telegramId = res.result?.id;
           this.botsHandler.addAllHandlers(botItem);
-          botItem.botInstance.launch();
+          botItem.botInstance.launch().catch((e) => console.error(`launch error`, e?.message || e));
           botItem.status = 'started';
         }
       } catch (e) {
@@ -77,12 +77,12 @@ export class BotsService {
 
   async addBot(bot: BotEntity) {
     const botItem: BotType = {
-      botInstance: new Telegraf(bot.token),
+      botInstance: new Telegraf(bot.token, { handlerTimeout: 30000 }),
       ...bot,
       status: 'stopped',
     };
     await this.botsHandler.addAllHandlers(botItem);
-    botItem.botInstance.launch();
+    botItem.botInstance.launch().catch((e) => console.error(`launch error`, e?.message || e));
     botItem.status = 'started';
     this.bots.push(botItem);
   }
@@ -185,9 +185,9 @@ export class BotsService {
   async start(id: number) {
     const bot = this.bots.find((bot) => bot.id === id);
     if (bot && (bot.botInstance === null || bot.status === 'stopped')) {
-      bot.botInstance = new Telegraf(bot.token);
+      bot.botInstance = new Telegraf(bot.token, { handlerTimeout: 30000 });
       await this.botsHandler.addAllHandlers(bot);
-      bot.botInstance.launch();
+      bot.botInstance.launch().catch((e) => console.error(`launch error`, e?.message || e));
       bot.status = 'started';
       return true;
     }
@@ -199,9 +199,9 @@ export class BotsService {
     if (bot) {
       if (bot.botInstance !== null && bot.status == 'started')
         bot.botInstance.stop();
-      bot.botInstance = new Telegraf(bot.token);
+      bot.botInstance = new Telegraf(bot.token, { handlerTimeout: 30000 });
       await this.botsHandler.addAllHandlers(bot);
-      bot.botInstance.launch();
+      bot.botInstance.launch().catch((e) => console.error(`launch error`, e?.message || e));
       bot.status = 'started';
       return true;
     }
@@ -900,16 +900,18 @@ export class BotsService {
     let title: string | null = null;
     let type = normalized.startsWith('@') ? 'channel' : 'group';
 
-    // Перебираємо всіх ботів категорії: для кожного, хто має доступ до чату,
-    // фіксуємо його в пулі «знайдених» чатів (для автокомпліту) разом із
-    // реальним статусом членства. Це гарантує, що після видалення зі списку
-    // розсилки чат знову з'явиться в підказках.
+    // Шукаємо ПЕРШОГО бота категорії, який має доступ до чату, щоб отримати
+    // назву/тип і зафіксувати чат у пулі «знайдених» (для автокомпліту).
+    // Зупиняємось після першого успіху — інакше при 100+ ботах це сотні
+    // викликів Telegram на один «Додати» (повільно / ризик rate limit).
+    // Решта ботів-адмінів підтягнуться пасивно через оновлення Telegram,
+    // а на момент відправки адмін усе одно перевіряється наживо.
     const bots = this.getBotsByCategory(categoryId);
     if (bots && bots.length) {
       for (const bot of bots) {
         try {
           const chat: any = await bot.botInstance.telegram.getChat(normalized);
-          if (title === null) title = chat.title || chat.username || null;
+          title = chat.title || chat.username || null;
           type = chat.type === 'channel' ? 'channel' : 'group';
 
           let status = 'member';
@@ -927,6 +929,7 @@ export class BotsService {
           }
 
           await this.recordDiscoveredChat(bot, chat, status);
+          break;
         } catch {
           // Цей бот не має доступу до чату — пробуємо наступного.
         }
@@ -982,37 +985,44 @@ export class BotsService {
   }
 
   // Список цільових чатів категорії + перелік ботів-адмінів для кожного.
+  // ВАЖЛИВО: лише запити до БД, БЕЗ живих викликів Telegram. Раніше тут на
+  // кожен чат × кожен бот (100+) робився getChatMember у потоці запиту — це
+  // підвішувало ендпоінт (нескінченний лоадер). Статус адмінів беремо зі
+  // збереженого пулу DiscoveredChat.
   async getChats(categoryId: number) {
     const chats = await this.botChatRepository.find({
       where: { category_id: Number(categoryId) },
       order: { created_at: 'ASC' },
     });
-    const bots = this.getBotsByCategory(categoryId) || [];
+    const discovered = await this.discoveredChatRepository.find({
+      where: { category_id: Number(categoryId) },
+    });
 
-    const result = [];
-    for (const chat of chats) {
-      const adminBots: string[] = [];
-      for (const bot of bots) {
-        try {
-          const telegramId = await this.ensureBotTelegramId(bot);
-          if (!telegramId) continue;
-          const member = await bot.botInstance.telegram.getChatMember(
-            chat.identifier,
-            telegramId,
-          );
-          if (
-            member.status === 'administrator' ||
-            member.status === 'creator'
-          ) {
-            adminBots.push(bot.name);
-          }
-        } catch {
-          // Бот не у цьому чаті.
-        }
-      }
-      result.push({ ...chat, adminBots });
-    }
-    return result;
+    return chats.map((chat) => {
+      const isUsername = chat.identifier.startsWith('@');
+      const uname = isUsername ? chat.identifier.slice(1).toLowerCase() : null;
+
+      const matches = discovered.filter((d) =>
+        isUsername
+          ? d.username?.toLowerCase() === uname
+          : d.chat_id === chat.identifier,
+      );
+
+      const adminBots = Array.from(
+        new Set(
+          matches
+            .filter(
+              (d) => d.status === 'administrator' || d.status === 'creator',
+            )
+            .map(
+              (d) =>
+                this.bots.find((b) => b.id === d.bot_id)?.name || `#${d.bot_id}`,
+            ),
+        ),
+      );
+
+      return { ...chat, adminBots };
+    });
   }
 
   async deleteChat(id: number) {

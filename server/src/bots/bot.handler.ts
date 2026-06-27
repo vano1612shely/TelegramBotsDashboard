@@ -140,6 +140,16 @@ export class BotsHandler {
   }
 
   async addAllHandlers(bot: BotType) {
+    // КРИТИЧНО: без власного обробника помилок Telegraf за замовчуванням
+    // перекидає помилку далі. Тайм-аут обробника (handlerTimeout) тоді стає
+    // незловленим виключенням і КРАШИТЬ весь процес — падають усі боти.
+    // bot.catch гарантує, що будь-яка помилка/тайм-аут лише логуються.
+    bot.botInstance.catch((err: any, ctx) => {
+      console.error(
+        `Bot ${bot.name} (${bot.id}) handler error on update ${ctx?.update?.update_id}:`,
+        err?.message || err,
+      );
+    });
     await this.start(bot);
     this.myChatMember(bot);
     this.chatActivity(bot);

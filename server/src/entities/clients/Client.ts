@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinTable,
   ManyToMany,
   PrimaryGeneratedColumn,
@@ -23,6 +24,9 @@ export class ClientEntity {
   @CreateDateColumn()
   created_at: Date;
 
+  // Індекс критичний: пошук клієнта за chat_id виконується на КОЖЕН /start.
+  // Без індексу це повний скан таблиці (70k+ рядків) під час кожного звернення.
+  @Index()
   @Column({ nullable: true })
   chat_id: string;
 
