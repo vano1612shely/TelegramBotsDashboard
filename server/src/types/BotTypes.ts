@@ -6,6 +6,9 @@ export type BotType = BotEntity & {
   status: 'started' | 'stopped';
   // Telegram id of the bot itself (from getMe), cached lazily.
   telegramId?: number;
+  // Cached file_id of the welcome photo so Telegram does not re-download the
+  // image from its URL on every /start (that re-fetch caused handler timeouts).
+  welcomePhotoFileId?: string;
 };
 
 export type CreateBot = {

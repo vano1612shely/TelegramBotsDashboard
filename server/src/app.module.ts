@@ -29,6 +29,13 @@ import { ClientsModule } from './clients/clients.module';
         entities: [__dirname + '/dist/**/*.entity{.ts,.js}'],
         synchronize: true,
         autoLoadEntities: true,
+        // Дефолтний пул node-postgres = 10 з'єднань. При 100+ ботах і розсилках
+        // (де на кожну відправку береться з'єднання) цього критично мало —
+        // /start та інші запити чекають на вільне з'єднання й впираються в
+        // тайм-аути. Збільшуємо пул (тримати < Postgres max_connections).
+        extra: {
+          max: 50,
+        },
       }),
     }),
     JwtModule.registerAsync({

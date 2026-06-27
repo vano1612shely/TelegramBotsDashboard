@@ -23,32 +23,56 @@ export class BotsHandler {
 
   async start(bot: BotType) {
     bot.botInstance.start(async (ctx) => {
-      try {
-        const data: CreateClientDto = {
-          name: `${ctx.message.from.first_name ? ctx.message.from.first_name : ''}${ctx.message.from.last_name ? ' ' + ctx.message.from.last_name : ''}`,
-          username: ctx.message.from.username,
-          category_id: bot.category_id,
-          chat_id: ctx.message.from.id,
-          bot_id: bot.id,
-        };
-        await this.clientsService.create(data);
+      // Реєстрацію клієнта робимо у ФОНІ — щоб повільна БД під навантаженням
+      // не блокувала відповідь і не впиралась у handlerTimeout (30с).
+      this.registerClient(bot, ctx).catch((e) =>
+        console.log('registerClient error', e?.message || e),
+      );
 
-        const buttons = [];
-        bot.category.buttons.map((button) => {
-          buttons.push([Markup.button.url(button.title, button.link)]);
-        });
-        await ctx.sendPhoto(
-          { url: bot.category.image_link },
-          {
-            caption: bot.category.text,
-            parse_mode: 'HTML',
-            ...Markup.inlineKeyboard(buttons),
-          },
-        );
+      // Привітання відправляємо одразу (швидкий шлях).
+      try {
+        await this.sendWelcome(bot, ctx);
       } catch (e) {
-        console.log(e);
+        console.log('welcome error', e?.message || e);
       }
     });
+  }
+
+  private async registerClient(bot: BotType, ctx: any) {
+    const from = ctx.message.from;
+    const data: CreateClientDto = {
+      name: `${from.first_name ? from.first_name : ''}${from.last_name ? ' ' + from.last_name : ''}`,
+      username: from.username,
+      category_id: bot.category_id,
+      chat_id: from.id,
+      bot_id: bot.id,
+    };
+    await this.clientsService.create(data);
+  }
+
+  private async sendWelcome(bot: BotType, ctx: any) {
+    const buttons = [];
+    (bot.category?.buttons || []).forEach((button) => {
+      buttons.push([Markup.button.url(button.title, button.link)]);
+    });
+
+    const extra = {
+      caption: bot.category?.text,
+      parse_mode: 'HTML' as const,
+      ...Markup.inlineKeyboard(buttons),
+    };
+
+    // Перший раз вантажимо з URL і запам'ятовуємо file_id; далі шлемо by file_id
+    // (миттєво, без повторного завантаження картинки Telegram-ом).
+    const photo = bot.welcomePhotoFileId
+      ? bot.welcomePhotoFileId
+      : { url: bot.category.image_link };
+
+    const sent: any = await ctx.sendPhoto(photo, extra);
+
+    if (!bot.welcomePhotoFileId && sent?.photo?.length) {
+      bot.welcomePhotoFileId = sent.photo[sent.photo.length - 1].file_id;
+    }
   }
 
   // Зберігаємо/оновлюємо чат, який бот «побачив». Telegram Bot API не дозволяє
