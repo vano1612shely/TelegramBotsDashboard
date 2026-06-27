@@ -550,14 +550,33 @@ export class BotsService {
     return Boolean(file?.mimetype && file.mimetype.startsWith('video'));
   }
 
-  // Передаємо filename, щоб Telegram коректно визначив тип файлу.
-  // Без імені (а отже й розширення) Telegram може не розпізнати формат і
-  // повернути IMAGE_PROCESS_FAILED.
+  // Передаємо filename з коректним розширенням, щоб Telegram правильно визначив
+  // тип файлу. Якщо оригінальне ім'я без розширення (буває для blob/завантажень),
+  // підставляємо розширення з mimetype — інакше sendPhoto може повернути
+  // IMAGE_PROCESS_FAILED і фото зайве «деградує» в документ.
   private toInputFile(file: Express.Multer.File) {
+    const hasExt = file.originalname && /\.[a-z0-9]{2,5}$/i.test(file.originalname);
+    const filename = hasExt
+      ? file.originalname
+      : `file${this.extFromMime(file.mimetype)}`;
     return {
       source: Buffer.from(file.buffer),
-      filename: file.originalname || 'file',
+      filename,
     };
+  }
+
+  private extFromMime(mimetype?: string): string {
+    const map: Record<string, string> = {
+      'image/jpeg': '.jpg',
+      'image/jpg': '.jpg',
+      'image/png': '.png',
+      'image/webp': '.webp',
+      'image/gif': '.gif',
+      'video/mp4': '.mp4',
+      'video/quicktime': '.mov',
+      'video/webm': '.webm',
+    };
+    return (mimetype && map[mimetype]) || '';
   }
 
   // Помилки етапу обробки зображення (завеликий файл, неприйнятні розміри,

@@ -9,6 +9,12 @@ import { Repository } from 'typeorm';
 
 @Injectable()
 export class BotsHandler {
+  // In-memory кеш уже записаних пар «бот:чат», щоб НЕ робити запит до БД на
+  // КОЖНЕ вхідне повідомлення в групі/каналі. Без цього активні групи створюють
+  // шторм DB-запитів, який конкурує з розсилкою і призводить до тайм-аутів
+  // (частина повідомлень користувачам не доходить).
+  private readonly seenChats = new Set<string>();
+
   constructor(
     private readonly clientsService: ClientsService,
     @InjectRepository(DiscoveredChatEntity)
@@ -85,12 +91,20 @@ export class BotsHandler {
   }
 
   // Зміна статусу самого бота в чаті (додали / зробили адміном / видалили).
+  // Подія рідкісна, тож завжди оновлюємо БД authoritatively та кеш.
   private myChatMember(bot: BotType) {
     bot.botInstance.on('my_chat_member', async (ctx) => {
       try {
         const update = ctx.myChatMember;
         const status = update.new_chat_member?.status;
-        await this.upsertDiscoveredChat(bot, update.chat as any, status);
+        const chat = update.chat as any;
+        await this.upsertDiscoveredChat(bot, chat, status);
+        const key = `${bot.id}:${chat?.id}`;
+        if (status === 'left' || status === 'kicked') {
+          this.seenChats.delete(key);
+        } else {
+          this.seenChats.add(key);
+        }
       } catch (e) {
         console.log(e);
       }
@@ -98,6 +112,8 @@ export class BotsHandler {
   }
 
   // Будь-яка активність у групі/каналі підтверджує, що бот там присутній.
+  // Пишемо в БД лише ОДИН раз на пару «бот:чат» за час роботи процесу —
+  // решта повідомлень обробляються без жодного запиту до БД.
   private chatActivity(bot: BotType) {
     bot.botInstance.on(['message', 'channel_post'], async (ctx, next) => {
       try {
@@ -108,7 +124,12 @@ export class BotsHandler {
             chat.type === 'supergroup' ||
             chat.type === 'channel')
         ) {
-          await this.upsertDiscoveredChat(bot, chat, 'member');
+          const key = `${bot.id}:${chat.id}`;
+          if (!this.seenChats.has(key)) {
+            // Позначаємо одразу, щоб паралельні апдейти не дублювали запис.
+            this.seenChats.add(key);
+            await this.upsertDiscoveredChat(bot, chat, 'member');
+          }
         }
       } catch (e) {
         console.log(e);
